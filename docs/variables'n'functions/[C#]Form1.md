@@ -31,32 +31,51 @@
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドロップイベント引数
-- **役割**: ファイルがドロップされた際に、そのパスを非同期で解析。フォルダであれば `CompressFolderAsync` を、ZIPファイルであれば `DecompressZipAsync` を呼び出して処理を実行する。
-- **依存関係**: `SetUIProcessing`, `CompressFolderAsync`, `DecompressZipAsync`, `UpdateStatus`
+- **役割**: ファイルがドロップされた際、フォルダが1つなら `CompressFolderAsync` を、ZIPが1つなら `DecompressZipAsync` を実行。それ以外の複数ファイル・混在の場合は `SaveFileDialog` を表示して `CompressMultipleItemsAsync` を呼び出し、1つのZIPファイルにまとめ圧縮する。
+- **依存関係**: `SetUIProcessing`, `CompressFolderAsync`, `DecompressZipAsync`, `CompressMultipleItemsAsync`, `UpdateStatus`
 
-### `UpdateStatus` (行 68)
+### `UpdateStatus` (行 119)
 - **型**: `private void`
 - **引数**:
   - `string message`: 表示するステータスメッセージ
 - **役割**: `Statuslabel` コントロールのテキストを安全に（InvokeRequiredを考慮して）更新する。
 - **影響範囲**: アプリケーション内の全ステータス表示更新
 
-### `SetUIProcessing` (行 80)
+### `SetUIProcessing` (行 131)
 - **型**: `private void`
 - **引数**:
   - `bool isProcessing`: 処理中かどうかのフラグ
 - **役割**: 処理中のプログレスバー表示の切り替え（Marqueeアニメーション開始/停止）および多重ドロップ防止のためのパネル活性制御を安全に（InvokeRequiredを考慮して）行う。
 - **影響範囲**: `ProcessingBar`, `DragDropPanel`
 
-### `CompressFolderAsync` (行 102)
+### `CompressFolderAsync` (行 153)
 - **型**: `private async Task`
 - **引数**:
   - `string folderPath`: 圧縮対象フォルダの絶対パス
-- **役割**: 指定されたフォルダを、同一階層内に同名でZIP圧縮する（圧縮レベル：`Fastest`）。既存 of 同名ファイルがある場合は上書き。
+- **役割**: 指定された単一フォルダを、同一階層内に同名でZIP圧縮する（圧縮レベル：`Fastest`）。既存の同名ファイルがある場合は上書き。
 - **依存関係**: `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO処理
 
-### `DecompressZipAsync` (行 127)
+### `CompressMultipleItemsAsync` (行 178)
+- **型**: `private async Task`
+- **引数**:
+  - `string[] sourcePaths`: 圧縮対象ファイル・フォルダのパス配列
+  - `string destZipPath`: 出力先ZIPファイルの絶対パス
+- **役割**: 指定された複数のアイテムを1つのZIPファイルにまとめて非同期で圧縮する。
+- **依存関係**: `AddDirectoryToArchive`, `UpdateStatus`
+- **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
+
+### `AddDirectoryToArchive` (行 213)
+- **型**: `private void`
+- **引数**:
+  - `ZipArchive archive`: 書き込み対象ZIPアーカイブ
+  - `string sourceRootDir`: 圧縮元のベースディレクトリ
+  - `string currentDir`: 現在走査中のサブディレクトリ
+  - `string archivePathPrefix`: アーカイブ内でのフォルダ名プレフィックス
+- **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的（再帰呼び出し）にZIPアーカイブに追加する。
+- **依存関係**: `UpdateStatus`, `AddDirectoryToArchive`（自己再帰）
+
+### `DecompressZipAsync` (行 231)
 - **型**: `private async Task`
 - **引数**:
   - `string zipFilePath`: 展開対象ZIPファイルの絶対パス
@@ -65,12 +84,12 @@
   - OSの標準コードページ (`CultureInfo.CurrentCulture.TextInfo.ANSICodePage`) を用いてエンコーディングを自動決定し、非UTF-8のZIPファイルの文字化けを防止。
   - 展開先フォルダが既に存在する場合は、ダイアログを介して「上書き」「別名保存」「キャンセル」を選択させる。
   - **高速上書き対応 (Move-and-Delete)**: 上書き選択時、既存フォルダの完全削除を待たずに、一瞬でユニークな一時フォルダ名に `Directory.Move` で退避させ、即座に展開処理を開始。退避したフォルダの実際の削除は別スレッドのバックグラウンド (`Task.Run`) で非同期に行うことで、上書き時の待ち時間をほぼゼロに短縮する。
+  - **マルチスレッド（並列）展開**: ZIP内の全ファイルエントリーの展開を `Parallel.ForEach`（最大並列度はCPU論理コア数）で処理。各スレッドが個別にZIPファイルを読込専用モードで開いて展開することで、スレッドセーフを確保しつつNVMe環境等の転送帯域を最大化する。
   - **自動オープン確認**: 展開完了後、メッセージボックスで「フォルダを開きますか？」と確認し、選択された場合に `Process.Start` で展開先フォルダを自動オープン。
 - **依存関係**: `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO処理、およびユーザー選択ダイアログ表示
-- **使用するOSコンポーネント**: `FolderBrowserDialog`, `explorer.exe` (via Process.Start)
 
-### `panel1_Paint` (行 268) / `label1_Click` (行 272) / `progressBar1_Click` (行 276)
+### `panel1_Paint` (行 461) / `label1_Click` (行 465) / `progressBar1_Click` (行 469)
 - **型**: `private void`
 - **役割**: デザイナーから自動登録されたイベントハンドラのプレースホルダー。
 
@@ -83,8 +102,13 @@ graph TD
     RapidZipper_DragDrop --> SetUIProcessing
     RapidZipper_DragDrop --> CompressFolderAsync
     RapidZipper_DragDrop --> DecompressZipAsync
+    RapidZipper_DragDrop --> CompressMultipleItemsAsync
     RapidZipper_DragDrop --> UpdateStatus
     CompressFolderAsync --> UpdateStatus
+    CompressMultipleItemsAsync --> AddDirectoryToArchive
+    CompressMultipleItemsAsync --> UpdateStatus
+    AddDirectoryToArchive --> UpdateStatus
+    AddDirectoryToArchive --> AddDirectoryToArchive
     DecompressZipAsync --> UpdateStatus
 ```
 

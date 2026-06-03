@@ -36,23 +36,74 @@ namespace rapid_zipper
             var paths = (string[]?)e.Data.GetData(DataFormats.FileDrop);
             if (paths == null || paths.Length == 0) return;
 
-            string targetPath = paths[0];
-
             try
             {
                 SetUIProcessing(true);
 
-                if (Directory.Exists(targetPath))
+                // 単一のフォルダがドロップされた場合：自動圧縮
+                if (paths.Length == 1 && Directory.Exists(paths[0]))
                 {
-                    await CompressFolderAsync(targetPath);
+                    await CompressFolderAsync(paths[0]);
                 }
-                else if (File.Exists(targetPath) && Path.GetExtension(targetPath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                // 単一のZIPファイルがドロップされた場合：並列展開
+                else if (paths.Length == 1 && File.Exists(paths[0]) && Path.GetExtension(paths[0]).Equals(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    await DecompressZipAsync(targetPath);
+                    await DecompressZipAsync(paths[0]);
                 }
+                // それ以外（単一ファイル、複数ファイル、複数フォルダ、混在など）の場合：まとめて圧縮
                 else
                 {
-                    UpdateStatus("フォルダまたはZIPファイルをドロップしてください。");
+                    string defaultDir = Path.GetDirectoryName(paths[0]) ?? string.Empty;
+                    string defaultZipName = "archive.zip";
+                    if (paths.Length == 1)
+                    {
+                        defaultZipName = Path.GetFileNameWithoutExtension(paths[0]) + ".zip";
+                    }
+
+                    string destZipPath = string.Empty;
+
+                    if (InvokeRequired)
+                    {
+                        Invoke(new Action(() =>
+                        {
+                            using (var sfd = new SaveFileDialog())
+                            {
+                                sfd.Filter = "ZIPファイル (*.zip)|*.zip";
+                                sfd.InitialDirectory = defaultDir;
+                                sfd.FileName = defaultZipName;
+                                sfd.Title = "圧縮ファイルの保存先を選択してください";
+
+                                if (sfd.ShowDialog() == DialogResult.OK)
+                                {
+                                    destZipPath = sfd.FileName;
+                                }
+                            }
+                        }));
+                    }
+                    else
+                    {
+                        using (var sfd = new SaveFileDialog())
+                        {
+                            sfd.Filter = "ZIPファイル (*.zip)|*.zip";
+                            sfd.InitialDirectory = defaultDir;
+                            sfd.FileName = defaultZipName;
+                            sfd.Title = "圧縮ファイルの保存先を選択してください";
+
+                            if (sfd.ShowDialog() == DialogResult.OK)
+                            {
+                                destZipPath = sfd.FileName;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(destZipPath))
+                    {
+                        await CompressMultipleItemsAsync(paths, destZipPath);
+                    }
+                    else
+                    {
+                        UpdateStatus("圧縮処理をキャンセルしました。");
+                    }
                 }
             }
             catch (Exception ex)
@@ -124,6 +175,59 @@ namespace rapid_zipper
             UpdateStatus("圧縮が完了しました。");
         }
 
+        private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath)
+        {
+            UpdateStatus("圧縮処理を準備中...");
+
+            await Task.Run(() =>
+            {
+                if (File.Exists(destZipPath))
+                {
+                    File.Delete(destZipPath);
+                }
+
+                int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+                var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
+
+                using (var archive = ZipFile.Open(destZipPath, ZipArchiveMode.Create, encoding))
+                {
+                    foreach (var path in sourcePaths)
+                    {
+                        if (Directory.Exists(path))
+                        {
+                            AddDirectoryToArchive(archive, path, path, Path.GetFileName(path));
+                        }
+                        else if (File.Exists(path))
+                        {
+                            string entryName = Path.GetFileName(path);
+                            UpdateStatus($"圧縮中: {entryName}");
+                            archive.CreateEntryFromFile(path, entryName, CompressionLevel.Fastest);
+                        }
+                    }
+                }
+            });
+
+            UpdateStatus("圧縮が完了しました。");
+        }
+
+        private void AddDirectoryToArchive(ZipArchive archive, string sourceRootDir, string currentDir, string archivePathPrefix)
+        {
+            // ディレクトリ内のファイルを追加
+            foreach (var file in Directory.GetFiles(currentDir))
+            {
+                string relativePath = Path.GetRelativePath(sourceRootDir, file);
+                string entryName = Path.Combine(archivePathPrefix, relativePath).Replace('\\', '/');
+                UpdateStatus($"圧縮中: {Path.GetFileName(file)}");
+                archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
+            }
+
+            // 子ディレクトリを再帰追加
+            foreach (var subDir in Directory.GetDirectories(currentDir))
+            {
+                AddDirectoryToArchive(archive, sourceRootDir, subDir, archivePathPrefix);
+            }
+        }
+
         private async Task DecompressZipAsync(string zipFilePath)
         {
             string parentDir = Path.GetDirectoryName(zipFilePath) ?? string.Empty;
@@ -133,7 +237,6 @@ namespace rapid_zipper
 
             string selectedParentDir = string.Empty;
 
-            // FolderBrowserDialog はUIスレッドで動かす必要がある
             if (InvokeRequired)
             {
                 Invoke(new Action(() =>
@@ -251,13 +354,64 @@ namespace rapid_zipper
                 }
             }
 
-            UpdateStatus($"展開中: {Path.GetFileName(destDir)}");
+            UpdateStatus("展開処理を準備中...");
+
+            int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+            var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
+
+            // まず展開先ルートディレクトリを作成
+            Directory.CreateDirectory(destDir);
+
+            // ZIPファイルのエントリー名一覧を取得
+            var entryNames = new System.Collections.Generic.List<string>();
 
             await Task.Run(() =>
             {
-                int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
-                var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
-                ZipFile.ExtractToDirectory(zipFilePath, destDir, encoding, overwriteFiles: true);
+                using (var archive = ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding))
+                {
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (!string.IsNullOrEmpty(entry.Name)) // ファイルエントリー
+                        {
+                            entryNames.Add(entry.FullName);
+                        }
+                        else
+                        {
+                            // ディレクトリのみのエントリーを事前作成
+                            var dirPath = Path.Combine(destDir, entry.FullName);
+                            Directory.CreateDirectory(dirPath);
+                        }
+                    }
+                }
+            });
+
+            UpdateStatus($"展開中: {Path.GetFileName(destDir)}");
+
+            // 並列で各ファイルを解凍 (NVMe環境用のマルチコア最大並列化)
+            await Task.Run(() =>
+            {
+                Parallel.ForEach(
+                    entryNames,
+                    new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                    entryName =>
+                    {
+                        using (var archive = ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding))
+                        {
+                            var entry = archive.GetEntry(entryName);
+                            if (entry != null)
+                            {
+                                string targetFilePath = Path.Combine(destDir, entry.FullName);
+                                string? targetFileDir = Path.GetDirectoryName(targetFilePath);
+                                if (targetFileDir != null)
+                                {
+                                    Directory.CreateDirectory(targetFileDir);
+                                }
+
+                                entry.ExtractToFile(targetFilePath, overwrite: true);
+                            }
+                        }
+                    }
+                );
             });
 
             UpdateStatus("展開が完了しました。");
