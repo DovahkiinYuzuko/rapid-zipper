@@ -128,11 +128,54 @@ namespace rapid_zipper
         {
             string parentDir = Path.GetDirectoryName(zipFilePath) ?? string.Empty;
             string zipFileNameWithoutExt = Path.GetFileNameWithoutExtension(zipFilePath);
-            string destDirBase = Path.Combine(parentDir, zipFileNameWithoutExt);
+
+            UpdateStatus("展開先を選択中...");
+
+            string selectedParentDir = string.Empty;
+
+            // FolderBrowserDialog はUIスレッドで動かす必要がある
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() =>
+                {
+                    using (var dialog = new FolderBrowserDialog())
+                    {
+                        dialog.Description = "解凍先フォルダを選択してください";
+                        dialog.InitialDirectory = parentDir;
+                        dialog.SelectedPath = parentDir;
+
+                        if (dialog.ShowDialog() == DialogResult.OK)
+                        {
+                            selectedParentDir = dialog.SelectedPath;
+                        }
+                    }
+                }));
+            }
+            else
+            {
+                using (var dialog = new FolderBrowserDialog())
+                {
+                    dialog.Description = "解凍先フォルダを選択してください";
+                    dialog.InitialDirectory = parentDir;
+                    dialog.SelectedPath = parentDir;
+
+                    if (dialog.ShowDialog() == DialogResult.OK)
+                    {
+                        selectedParentDir = dialog.SelectedPath;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(selectedParentDir))
+            {
+                UpdateStatus("展開をキャンセルしました。");
+                return;
+            }
+
+            string destDirBase = Path.Combine(selectedParentDir, zipFileNameWithoutExt);
             string destDir = destDirBase;
 
-            UpdateStatus("展開先を確認中...");
-
+            // 重複チェック
             if (Directory.Exists(destDir))
             {
                 DialogResult result = DialogResult.None;
@@ -163,14 +206,14 @@ namespace rapid_zipper
                 {
                     UpdateStatus("既存のフォルダを退避中...");
                     
-                    // 同一ドライブ内にユニークな一時名を作成して移動（メタデータ書き換えのみのため一瞬で完了）
+                    // 同一ドライブ内にユニークな一時名を作成して移動
                     string tempGarbageDir = destDir + "_to_delete_" + Guid.NewGuid().ToString("N");
                     
                     try
                     {
                         Directory.Move(destDir, tempGarbageDir);
                         
-                        // 移動した古いフォルダの削除は、バックグラウンドスレッドで非同期にゆっくり実行
+                        // バックグラウンド削除
                         _ = Task.Run(() =>
                         {
                             try
@@ -179,13 +222,12 @@ namespace rapid_zipper
                             }
                             catch
                             {
-                                // バックグラウンド削除中のエラーは握りつぶす
+                                // 握りつぶす
                             }
                         });
                     }
                     catch (Exception)
                     {
-                        // リネームに万が一失敗した場合は、フォールバックとして同期削除を試みる
                         UpdateStatus("退避に失敗したため、直接削除中...");
                         await Task.Run(() =>
                         {
@@ -219,6 +261,47 @@ namespace rapid_zipper
             });
 
             UpdateStatus("展開が完了しました。");
+
+            // 完了後のフォルダオープン確認
+            DialogResult openFolderResult = DialogResult.None;
+
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() =>
+                {
+                    openFolderResult = MessageBox.Show(
+                        "展開が完了しました。フォルダを開きますか？",
+                        "完了",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question
+                    );
+                }));
+            }
+            else
+            {
+                openFolderResult = MessageBox.Show(
+                    "展開が完了しました。フォルダを開きますか？",
+                    "完了",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question
+                );
+            }
+
+            if (openFolderResult == DialogResult.Yes)
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                    {
+                        FileName = destDir,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatus($"フォルダを開く際にエラーが発生しました: {ex.Message}");
+                }
+            }
         }
 
         private void panel1_Paint(object sender, PaintEventArgs e)
