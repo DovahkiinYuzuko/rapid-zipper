@@ -161,11 +161,37 @@ namespace rapid_zipper
 
                 if (result == DialogResult.Yes)
                 {
-                    UpdateStatus("既存のフォルダを削除中...");
-                    await Task.Run(() =>
+                    UpdateStatus("既存のフォルダを退避中...");
+                    
+                    // 同一ドライブ内にユニークな一時名を作成して移動（メタデータ書き換えのみのため一瞬で完了）
+                    string tempGarbageDir = destDir + "_to_delete_" + Guid.NewGuid().ToString("N");
+                    
+                    try
                     {
-                        Directory.Delete(destDir, true);
-                    });
+                        Directory.Move(destDir, tempGarbageDir);
+                        
+                        // 移動した古いフォルダの削除は、バックグラウンドスレッドで非同期にゆっくり実行
+                        _ = Task.Run(() =>
+                        {
+                            try
+                            {
+                                Directory.Delete(tempGarbageDir, true);
+                            }
+                            catch
+                            {
+                                // バックグラウンド削除中のエラーは握りつぶす
+                            }
+                        });
+                    }
+                    catch (Exception)
+                    {
+                        // リネームに万が一失敗した場合は、フォールバックとして同期削除を試みる
+                        UpdateStatus("退避に失敗したため、直接削除中...");
+                        await Task.Run(() =>
+                        {
+                            Directory.Delete(destDir, true);
+                        });
+                    }
                 }
                 else if (result == DialogResult.No)
                 {
