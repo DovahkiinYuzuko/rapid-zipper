@@ -17,8 +17,30 @@ namespace rapid_zipper
         {
             InitializeComponent();
             InitializeFormatComboBox();
-            // 7z.dll のロードパス設定 (7z.Libsパッケージが x64/x86 フォルダに出力するDLLをロード)
-            SevenZipBase.SetLibraryPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Environment.Is64BitProcess ? "x64" : "x86", "7z.dll"));
+
+            try
+            {
+                // 7z.dllのパスをUnicodeを含まないTempフォルダに退避させてロード (SevenZipSharpのUnicodeパスバグ回避策)
+                string sourceDllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Environment.Is64BitProcess ? "x64" : "x86", "7z.dll");
+                if (File.Exists(sourceDllPath))
+                {
+                    string tempDir = Path.Combine(Path.GetTempPath(), "RapidZipper_7z", Environment.Is64BitProcess ? "x64" : "x86");
+                    Directory.CreateDirectory(tempDir);
+                    string destDllPath = Path.Combine(tempDir, "7z.dll");
+
+                    // 最新のDLLを一時フォルダにコピーしてロード
+                    File.Copy(sourceDllPath, destDllPath, overwrite: true);
+                    SevenZipBase.SetLibraryPath(destDllPath);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("警告: 7z.dll が見つかりません。");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"7z.dllロードエラー: {ex.Message}");
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)
