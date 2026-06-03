@@ -81,13 +81,17 @@
   - `string zipFilePath`: 展開対象ZIPファイルの絶対パス
 - **役割**: 指定されたZIPファイルを非同期で展開する。
   - **展開先フォルダ選択**: 展開前に `FolderBrowserDialog` を表示し、ユーザーが展開先の親フォルダを自由に指定できるようにする。デフォルトはZIPと同じフォルダ。
-  - OSの標準コードページ (`CultureInfo.CurrentCulture.TextInfo.ANSICodePage`) を用いてエンコーディングを自動決定し、非UTF-8のZIPファイルの文字化けを防止。
+  - OSの標準コードページ (`CultureInfo.CurrentCulture.TextInfo.ANSICodePage`) を用いてエンコーディングを自動決定し、非UTF-8 of ZIPファイルの文字化けを防止。
   - 展開先フォルダが既に存在する場合は、ダイアログを介して「上書き」「別名保存」「キャンセル」を選択させる。
   - **高速上書き対応 (Move-and-Delete)**: 上書き選択時、既存フォルダの完全削除を待たずに、一瞬でユニークな一時フォルダ名に `Directory.Move` で退避させ、即座に展開処理を開始。退避したフォルダの実際の削除は別スレッドのバックグラウンド (`Task.Run`) で非同期に行うことで、上書き時の待ち時間をほぼゼロに短縮する。
-  - **マルチスレッド（並列）展開**: ZIP内の全ファイルエントリーの展開を `Parallel.ForEach`（最大並列度はCPU論理コア数）で処理。各スレッドが個別にZIPファイルを読込専用モードで開いて展開することで、スレッドセーフを確保しつつNVMe環境等の転送帯域を最大化する。
+  - **マルチスレッド（並列）展開 (並列度制限調整版)**: 
+    - ZIP内の全ファイルエントリーの展開を `Parallel.ForEach` で処理。
+    - **スレッドローカル最適化**: 各スレッドの開始時に1回だけZIPを開き、スレッド内部の解凍で `ZipArchive` インスタンスを再利用することで、オープン処理のボトルネックを完全に解消。
+    - **I/O競合・Defender影響緩和**: ディスク書き込みおよびセキュリティスキャン競合を防ぐため、最大並列度（`MaxDegreeOfParallelism`）を `Math.Min(4, Environment.ProcessorCount)` に制限。
   - **自動オープン確認**: 展開完了後、メッセージボックスで「フォルダを開きますか？」と確認し、選択された場合に `Process.Start` で展開先フォルダを自動オープン。
 - **依存関係**: `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO処理、およびユーザー選択ダイアログ表示
+- **使用するOSコンポーネント**: `FolderBrowserDialog`, `explorer.exe` (via Process.Start)
 
 ### `panel1_Paint` (行 461) / `label1_Click` (行 465) / `progressBar1_Click` (行 469)
 - **型**: `private void`

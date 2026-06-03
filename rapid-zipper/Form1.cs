@@ -387,30 +387,30 @@ namespace rapid_zipper
 
             UpdateStatus($"展開中: {Path.GetFileName(destDir)}");
 
-            // 並列で各ファイルを解凍 (NVMe環境用のマルチコア最大並列化)
+            // 並列で各ファイルを解凍 (I/O・スキャン競合を抑えるために並列度を最大4に制限)
             await Task.Run(() =>
             {
-                Parallel.ForEach(
+                Parallel.ForEach<string, ZipArchive>(
                     entryNames,
-                    new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
-                    entryName =>
+                    new ParallelOptions { MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount) },
+                    () => ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding),
+                    (entryName, loopState, archive) =>
                     {
-                        using (var archive = ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding))
+                        var entry = archive.GetEntry(entryName);
+                        if (entry != null)
                         {
-                            var entry = archive.GetEntry(entryName);
-                            if (entry != null)
+                            string targetFilePath = Path.Combine(destDir, entry.FullName);
+                            string? targetFileDir = Path.GetDirectoryName(targetFilePath);
+                            if (targetFileDir != null)
                             {
-                                string targetFilePath = Path.Combine(destDir, entry.FullName);
-                                string? targetFileDir = Path.GetDirectoryName(targetFilePath);
-                                if (targetFileDir != null)
-                                {
-                                    Directory.CreateDirectory(targetFileDir);
-                                }
-
-                                entry.ExtractToFile(targetFilePath, overwrite: true);
+                                Directory.CreateDirectory(targetFileDir);
                             }
+
+                            entry.ExtractToFile(targetFilePath, overwrite: true);
                         }
-                    }
+                        return archive;
+                    },
+                    (archive) => archive.Dispose()
                 );
             });
 
