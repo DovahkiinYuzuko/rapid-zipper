@@ -330,16 +330,19 @@ namespace rapid_zipper
                 }
                 else if (format == "7Z")
                 {
+                    UpdateStatus("フォルダ内をスキャン中...");
                     var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
                     AddDirectoryToDictionary(filesToCompress, folderPath, folderPath, string.Empty);
 
+                    UpdateStatus("7z圧縮中...");
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
                     compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
                     compressor.CompressionMethod = CompressionMethod.Lzma2;
                     compressor.FastCompression = true;
-                    compressor.CustomParameters.Add("d", "16m");
-                    compressor.CustomParameters.Add("mt", "2");
+                    compressor.CustomParameters.Add("d", "8m");
+                    int threads = Math.Max(2, Environment.ProcessorCount / 2);
+                    compressor.CustomParameters.Add("mt", threads.ToString());
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -390,6 +393,7 @@ namespace rapid_zipper
 
                 if (format == "7Z")
                 {
+                    UpdateStatus("ファイル・フォルダをスキャン中...");
                     var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
                     foreach (var path in sourcePaths)
                     {
@@ -404,13 +408,15 @@ namespace rapid_zipper
                         }
                     }
 
+                    UpdateStatus("7z圧縮中...");
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
                     compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
                     compressor.CompressionMethod = CompressionMethod.Lzma2;
                     compressor.FastCompression = true;
-                    compressor.CustomParameters.Add("d", "16m");
-                    compressor.CustomParameters.Add("mt", "2");
+                    compressor.CustomParameters.Add("d", "8m");
+                    int threads = Math.Max(2, Environment.ProcessorCount / 2);
+                    compressor.CustomParameters.Add("mt", threads.ToString());
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
