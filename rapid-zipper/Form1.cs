@@ -20,11 +20,27 @@ namespace rapid_zipper
 
             try
             {
-                // 7z.dllのパスをUnicodeを含まないTempフォルダに退避させてロード (SevenZipSharpのUnicodeパスバグ回避策)
+                // 1. 前回の実行で作成された古い一時フォルダ (RapidZipper_7z_*) を自動クリーンアップ
+                string tempParent = Path.GetTempPath();
+                foreach (var dir in Directory.GetDirectories(tempParent, "RapidZipper_7z_*"))
+                {
+                    try
+                    {
+                        Directory.Delete(dir, true);
+                    }
+                    catch
+                    {
+                        // 使用中（他のインスタンス実行中）などの場合は握りつぶす
+                    }
+                }
+
+                // 2. 7z.dllのパスをUnicodeを含まないTempフォルダに退避させてロード (SevenZipSharpのUnicodeパスバグ回避策)
+                // 予測不可能なGUID付きのフォルダ名にすることで、VULN-001のDLL上書き脆弱性を防止
                 string sourceDllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Environment.Is64BitProcess ? "x64" : "x86", "7z.dll");
                 if (File.Exists(sourceDllPath))
                 {
-                    string tempDir = Path.Combine(Path.GetTempPath(), "RapidZipper_7z", Environment.Is64BitProcess ? "x64" : "x86");
+                    string randomFolderName = "RapidZipper_7z_" + Guid.NewGuid().ToString("N");
+                    string tempDir = Path.Combine(tempParent, randomFolderName, Environment.Is64BitProcess ? "x64" : "x86");
                     Directory.CreateDirectory(tempDir);
                     string destDllPath = Path.Combine(tempDir, "7z.dll");
 
