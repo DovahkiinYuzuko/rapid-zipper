@@ -56,20 +56,22 @@
   - `string folderPath`: 圧縮対象フォルダの絶対パス
   - `string format`: 圧縮フォーマット ("ZIP" / "7Z" / "TAR" / "TGZ (tar.gz)")
 - **役割**: 指定された単一フォルダを、指定フォーマットで同一階層内に圧縮・生成する（ZIPは `ZipFile`、7Zは `SevenZipCompressor`、その他は `SharpCompress` を使用）。
+  - **7Zパフォーマンス最適化**: `SevenZipCompressor` の圧縮方式を `Lzma2` にし、辞書サイズを `16MB (16m)`、スレッド数を `2 (mt=2)`、`FastCompression = true` に設定することで、高圧縮率（`Normal`）をキープしつつメモリ消費量を 300MB 前後に制限して超高速化している。
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `CompressMultipleItemsAsync` (行 362)
+### `CompressMultipleItemsAsync` (行 366)
 - **型**: `private async Task`
 - **引数**:
   - `string[] sourcePaths`: 圧縮対象ファイル・フォルダのパス配列
   - `string destZipPath`: 出力先圧縮ファイルの絶対パス
   - `string format`: 圧縮フォーマット ("ZIP" / "7Z" / "TAR" / "TGZ (tar.gz)")
 - **役割**: 指定された複数のアイテムを1つのアーカイブファイルにまとめて非同期で圧縮する（7Zの場合は `SevenZipCompressor` を使用、その他は `SharpCompress` を使用）。
+  - **7Zパフォーマンス最適化**: 単一フォルダ圧縮と同様に、`Lzma2`、辞書サイズ `16MB (16m)`、スレッド数 `2`、`FastCompression = true` の制限パラメータを適用し、メモリ消費量と処理速度の最適化を行っている。
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `AddDirectoryToDictionary` (行 435)
+### `AddDirectoryToDictionary` (行 443)
 - **型**: `private void`
 - **引数**:
   - `System.Collections.Generic.Dictionary<string, string> dict`: 圧縮対象ファイルの辞書（キー: アーカイブ内相対パス、値: ローカル絶対パス）
@@ -79,7 +81,7 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的に走査し、7Z圧縮用に対応辞書を構築する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToDictionary`（自己再帰）
 
-### `AddDirectoryToWriter` (行 459)
+### `AddDirectoryToWriter` (行 467)
 - **型**: `private void`
 - **引数**:
   - `IWriter writer`: SharpCompressのアーカイブライター
@@ -89,7 +91,7 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的（再帰呼び出し）に `IWriter` を用いてアーカイブに追加する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToWriter`（自己再帰）
 
-### `DecompressArchiveAsync` (行 483)
+### `DecompressArchiveAsync` (行 491)
 - **型**: `private async Task`
 - **引数**:
   - `string archiveFilePath`: 展開対象アーカイブファイルの絶対パス
@@ -102,7 +104,7 @@
 - **依存関係**: `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
-### `DecompressMultipleArchivesAsync` (行 596)
+### `DecompressMultipleArchivesAsync` (行 604)
 - **型**: `private async Task`
 - **引数**:
   - `string[] archiveFilePaths`: 展開対象アーカイブファイルのパス配列
@@ -112,7 +114,7 @@
   - 進行状況を 「[1/3] 展開中: ファイル名...」 の形式で表示。
 - **依存関係**: `DecompressArchiveAsync`, `UpdateStatus`
 
-### `panel1_Paint` (行 702) / `label1_Click` (行 706) / `progressBar1_Click` (行 710) / `comboBox1_SelectedIndexChanged` (行 714)
+### `panel1_Paint` (行 710) / `label1_Click` (行 714) / `progressBar1_Click` (行 718) / `comboBox1_SelectedIndexChanged` (行 722)
 - **型**: `private void`
 - **役割**: デザイナーから自動登録されたイベントハンドラのプレースホルダー。
 

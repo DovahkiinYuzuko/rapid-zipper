@@ -336,6 +336,10 @@ namespace rapid_zipper
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
                     compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressionMethod = CompressionMethod.Lzma2;
+                    compressor.FastCompression = true;
+                    compressor.CustomParameters.Add("d", "16m");
+                    compressor.CustomParameters.Add("mt", "2");
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -403,6 +407,10 @@ namespace rapid_zipper
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
                     compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressionMethod = CompressionMethod.Lzma2;
+                    compressor.FastCompression = true;
+                    compressor.CustomParameters.Add("d", "16m");
+                    compressor.CustomParameters.Add("mt", "2");
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
