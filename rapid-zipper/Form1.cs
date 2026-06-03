@@ -128,7 +128,7 @@ namespace rapid_zipper
         {
             string parentDir = Path.GetDirectoryName(zipFilePath) ?? string.Empty;
             string zipFileNameWithoutExt = Path.GetFileNameWithoutExtension(zipFilePath);
-            string destDirBase = Path.Combine(parentDir, zipFileNameWithoutExt + "_extracted");
+            string destDirBase = Path.Combine(parentDir, zipFileNameWithoutExt);
             string destDir = destDirBase;
 
             UpdateStatus("展開先を確認中...");
@@ -187,7 +187,9 @@ namespace rapid_zipper
 
             await Task.Run(() =>
             {
-                ZipFile.ExtractToDirectory(zipFilePath, destDir);
+                int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+                var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
+                ZipFile.ExtractToDirectory(zipFilePath, destDir, encoding, overwriteFiles: true);
             });
 
             UpdateStatus("展開が完了しました。");
