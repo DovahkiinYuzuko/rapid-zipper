@@ -678,31 +678,51 @@ namespace rapid_zipper
 
             UpdateStatus("展開処理を準備中...");
 
-            int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
-            var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
-
-            var options = new ReaderOptions
-            {
-                ArchiveEncoding = new ArchiveEncoding { Default = encoding }
-            };
-
             // まず展開先フォルダを作成
             Directory.CreateDirectory(destDir);
 
-            // シーケンシャルで各ファイルを安全かつ高速に展開 (スキャン競合を最小化するため)
+            string ext = Path.GetExtension(archiveFilePath).ToLower();
+
             await Task.Run(() =>
             {
-                using (var archive = ArchiveFactory.OpenArchive(archiveFilePath, options))
+                if (ext == ".zip")
                 {
-                    foreach (var entry in archive.Entries)
+                    // 1. ZIP形式: .NET標準クラスを使用して高速一括展開
+                    System.IO.Compression.ZipFile.ExtractToDirectory(archiveFilePath, destDir, overwriteFiles: true);
+                }
+                else if (ext == ".7z")
+                {
+                    // 2. 7Z形式: 7z.dll (SevenZipExtractor) を使用してネイティブ超高速展開
+                    using (var extractor = new SevenZip.SevenZipExtractor(archiveFilePath))
                     {
-                        if (!entry.IsDirectory)
+                        extractor.ExtractArchive(destDir);
+                    }
+                }
+                else
+                {
+                    // 3. その他 (TAR, TGZ, RAR等): SharpCompress の IReader を使って順次ストリーム読み込み (O(N^2)再シーク回避)
+                    int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+                    var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
+                    var options = new ReaderOptions
+                    {
+                        ArchiveEncoding = new ArchiveEncoding { Default = encoding }
+                    };
+
+                    using (Stream stream = File.OpenRead(archiveFilePath))
+                    {
+                        using (var reader = ReaderFactory.OpenReader(stream, options))
                         {
-                            entry.WriteToDirectory(destDir, new ExtractionOptions
+                            while (reader.MoveToNextEntry())
                             {
-                                ExtractFullPath = true,
-                                Overwrite = true
-                            });
+                                if (!reader.Entry.IsDirectory)
+                                {
+                                    reader.WriteEntryToDirectory(destDir, new ExtractionOptions
+                                    {
+                                        ExtractFullPath = true,
+                                        Overwrite = true
+                                    });
+                                }
+                            }
                         }
                     }
                 }
