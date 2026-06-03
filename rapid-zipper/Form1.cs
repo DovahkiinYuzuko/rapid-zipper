@@ -508,8 +508,8 @@ namespace rapid_zipper
         {
             using (var prompt = new Form())
             {
-                prompt.Width = 320;
-                prompt.Height = 200;
+                prompt.Width = 400;
+                prompt.Height = 210;
                 prompt.Text = "7z 圧縮レベルの選択";
                 prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
                 prompt.StartPosition = FormStartPosition.CenterParent;
@@ -519,17 +519,17 @@ namespace rapid_zipper
                 var label = new Label() 
                 { 
                     Left = 20, 
-                    Top = 20, 
-                    Width = 260, 
-                    Height = 30,
+                    Top = 15, 
+                    Width = 360, 
+                    Height = 35,
                     Text = "7zの圧縮レベルを選択してください\n(高レベルほど高圧縮ですが、メモリと時間がかかります)" 
                 };
                 
-                var radioLow = new RadioButton() { Left = 30, Top = 55, Width = 240, Text = "低 (高速・省メモリ - 辞書4MB)", Checked = false };
-                var radioNormal = new RadioButton() { Left = 30, Top = 80, Width = 240, Text = "普通 (バランス・現在設定 - 辞書8MB)", Checked = true };
-                var radioHigh = new RadioButton() { Left = 30, Top = 105, Width = 240, Text = "高 (高圧縮・メモリ多消費 - 辞書32MB)", Checked = false };
+                var radioLow = new RadioButton() { Left = 30, Top = 55, Width = 340, Text = "低 (高速・省メモリ - 辞書4MB)", Checked = false };
+                var radioNormal = new RadioButton() { Left = 30, Top = 80, Width = 340, Text = "普通 (バランス - 辞書8MB)", Checked = true };
+                var radioHigh = new RadioButton() { Left = 30, Top = 105, Width = 340, Text = "高 (高圧縮 - 辞書32MB - 最大4スレッド)", Checked = false };
 
-                var buttonOk = new Button() { Text = "決定", Left = 190, Top = 130, Width = 80, DialogResult = DialogResult.OK };
+                var buttonOk = new Button() { Text = "決定", Left = 280, Top = 135, Width = 80, DialogResult = DialogResult.OK };
                 
                 prompt.Controls.Add(label);
                 prompt.Controls.Add(radioLow);
