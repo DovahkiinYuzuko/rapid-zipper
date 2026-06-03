@@ -10,4 +10,4 @@
 .vs/
 bin/
 obj/
-
+*.log
