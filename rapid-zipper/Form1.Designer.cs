@@ -29,14 +29,16 @@
         private void InitializeComponent()
         {
             DragDropPanel = new Panel();
-            Statuslabel = new Label();
             ProcessingBar = new ProgressBar();
+            Statuslabel = new Label();
+            FormatComboBox = new ComboBox();
             DragDropPanel.SuspendLayout();
             SuspendLayout();
             // 
             // DragDropPanel
             // 
             DragDropPanel.AllowDrop = true;
+            DragDropPanel.Controls.Add(FormatComboBox);
             DragDropPanel.Controls.Add(ProcessingBar);
             DragDropPanel.Controls.Add(Statuslabel);
             DragDropPanel.Dock = DockStyle.Fill;
@@ -47,6 +49,14 @@
             DragDropPanel.DragDrop += RapidZipper_DragDrop;
             DragDropPanel.DragEnter += RapidZipper_DragEnter;
             DragDropPanel.Paint += panel1_Paint;
+            // 
+            // ProcessingBar
+            // 
+            ProcessingBar.Location = new Point(46, 111);
+            ProcessingBar.Name = "ProcessingBar";
+            ProcessingBar.Size = new Size(218, 24);
+            ProcessingBar.TabIndex = 1;
+            ProcessingBar.Click += progressBar1_Click;
             // 
             // Statuslabel
             // 
@@ -60,13 +70,15 @@
             Statuslabel.TextAlign = ContentAlignment.MiddleCenter;
             Statuslabel.Click += label1_Click;
             // 
-            // ProcessingBar
+            // FormatComboBox
             // 
-            ProcessingBar.Location = new Point(46, 111);
-            ProcessingBar.Name = "ProcessingBar";
-            ProcessingBar.Size = new Size(218, 24);
-            ProcessingBar.TabIndex = 1;
-            ProcessingBar.Click += progressBar1_Click;
+            FormatComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            FormatComboBox.FormattingEnabled = true;
+            FormatComboBox.Location = new Point(46, 58);
+            FormatComboBox.Name = "FormatComboBox";
+            FormatComboBox.Size = new Size(121, 23);
+            FormatComboBox.TabIndex = 2;
+            FormatComboBox.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
             // 
             // RapidZipper
             // 
@@ -90,5 +102,6 @@
         private Panel DragDropPanel;
         private Label Statuslabel;
         private ProgressBar ProcessingBar;
+        private ComboBox FormatComboBox;
     }
 }

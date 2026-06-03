@@ -3,6 +3,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Readers;
+using SharpCompress.Writers;
 
 namespace rapid_zipper
 {
@@ -11,10 +15,20 @@ namespace rapid_zipper
         public RapidZipper()
         {
             InitializeComponent();
+            InitializeFormatComboBox();
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+        }
+
+        private void InitializeFormatComboBox()
+        {
+            FormatComboBox.Items.Clear();
+            FormatComboBox.Items.Add("ZIP");
+            FormatComboBox.Items.Add("TAR");
+            FormatComboBox.Items.Add("TGZ (tar.gz)");
+            FormatComboBox.SelectedIndex = 0;
         }
 
         private void RapidZipper_DragEnter(object sender, DragEventArgs e)
@@ -29,6 +43,13 @@ namespace rapid_zipper
             }
         }
 
+        private bool IsArchiveFile(string path)
+        {
+            if (!File.Exists(path)) return false;
+            string ext = Path.GetExtension(path).ToLower();
+            return ext == ".zip" || ext == ".7z" || ext == ".rar" || ext == ".tar" || ext == ".gz" || ext == ".tgz";
+        }
+
         private async void RapidZipper_DragDrop(object sender, DragEventArgs e)
         {
             if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
@@ -40,24 +61,117 @@ namespace rapid_zipper
             {
                 SetUIProcessing(true);
 
-                // 単一のフォルダがドロップされた場合：自動圧縮
-                if (paths.Length == 1 && Directory.Exists(paths[0]))
+                // ドロップされたファイルからアーカイブファイルのみを抽出
+                var archiveFiles = new System.Collections.Generic.List<string>();
+                foreach (var path in paths)
                 {
-                    await CompressFolderAsync(paths[0]);
+                    if (IsArchiveFile(path))
+                    {
+                        archiveFiles.Add(path);
+                    }
                 }
-                // 単一のZIPファイルがドロップされた場合：並列展開
-                else if (paths.Length == 1 && File.Exists(paths[0]) && Path.GetExtension(paths[0]).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+
+                // 選択された圧縮形式を取得
+                string selectedFormat = "ZIP";
+                if (InvokeRequired)
                 {
-                    await DecompressZipAsync(paths[0]);
+                    Invoke(new Action(() => selectedFormat = FormatComboBox.SelectedItem?.ToString() ?? "ZIP"));
                 }
-                // それ以外（単一ファイル、複数ファイル、複数フォルダ、混在など）の場合：まとめて圧縮
+                else
+                {
+                    selectedFormat = FormatComboBox.SelectedItem?.ToString() ?? "ZIP";
+                }
+
+                // 1. アーカイブファイルの展開処理
+                if (archiveFiles.Count > 0 && archiveFiles.Count == paths.Length)
+                {
+                    if (archiveFiles.Count == 1)
+                    {
+                        // 1つのアーカイブファイルを展開
+                        string firstFileDir = Path.GetDirectoryName(archiveFiles[0]) ?? string.Empty;
+                        string selectedParentDir = string.Empty;
+
+                        if (InvokeRequired)
+                        {
+                            Invoke(new Action(() =>
+                            {
+                                using (var dialog = new FolderBrowserDialog())
+                                {
+                                    dialog.Description = "解凍先フォルダを選択してください";
+                                    dialog.InitialDirectory = firstFileDir;
+                                    dialog.SelectedPath = firstFileDir;
+                                    if (dialog.ShowDialog() == DialogResult.OK)
+                                    {
+                                        selectedParentDir = dialog.SelectedPath;
+                                    }
+                                }
+                            }));
+                        }
+                        else
+                        {
+                            using (var dialog = new FolderBrowserDialog())
+                            {
+                                dialog.Description = "解凍先フォルダを選択してください";
+                                dialog.InitialDirectory = firstFileDir;
+                                dialog.SelectedPath = firstFileDir;
+                                if (dialog.ShowDialog() == DialogResult.OK)
+                                {
+                                    selectedParentDir = dialog.SelectedPath;
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(selectedParentDir))
+                        {
+                            await DecompressArchiveAsync(archiveFiles[0], selectedParentDir);
+
+                            DialogResult openFolderResult = MessageBox.Show(
+                                "展開が完了しました。フォルダを開きますか？",
+                                "完了",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Question
+                            );
+
+                            if (openFolderResult == DialogResult.Yes)
+                            {
+                                string archiveNameWithoutExt = Path.GetFileNameWithoutExtension(archiveFiles[0]);
+                                string destDir = Path.Combine(selectedParentDir, archiveNameWithoutExt);
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                                {
+                                    FileName = Directory.Exists(destDir) ? destDir : selectedParentDir,
+                                    UseShellExecute = true
+                                });
+                            }
+                        }
+                        else
+                        {
+                            UpdateStatus("展開処理をキャンセルしました。");
+                        }
+                    }
+                    else
+                    {
+                        // 複数のアーカイブファイルを順次展開
+                        await DecompressMultipleArchivesAsync(archiveFiles.ToArray());
+                    }
+                }
+                // 2. 単一のフォルダがドロップされた場合（自動圧縮）
+                else if (paths.Length == 1 && Directory.Exists(paths[0]))
+                {
+                    await CompressFolderAsync(paths[0], selectedFormat);
+                }
+                // 3. それ以外（複数アイテムを1つのアーカイブに圧縮）
                 else
                 {
                     string defaultDir = Path.GetDirectoryName(paths[0]) ?? string.Empty;
-                    string defaultZipName = "archive.zip";
+                    
+                    string ext = ".zip";
+                    if (selectedFormat == "TAR") ext = ".tar";
+                    else if (selectedFormat.StartsWith("TGZ")) ext = ".tar.gz";
+
+                    string defaultZipName = "archive" + ext;
                     if (paths.Length == 1)
                     {
-                        defaultZipName = Path.GetFileNameWithoutExtension(paths[0]) + ".zip";
+                        defaultZipName = Path.GetFileNameWithoutExtension(paths[0]) + ext;
                     }
 
                     string destZipPath = string.Empty;
@@ -68,7 +182,7 @@ namespace rapid_zipper
                         {
                             using (var sfd = new SaveFileDialog())
                             {
-                                sfd.Filter = "ZIPファイル (*.zip)|*.zip";
+                                sfd.Filter = $"圧縮ファイル (*{ext})|*{ext}";
                                 sfd.InitialDirectory = defaultDir;
                                 sfd.FileName = defaultZipName;
                                 sfd.Title = "圧縮ファイルの保存先を選択してください";
@@ -84,7 +198,7 @@ namespace rapid_zipper
                     {
                         using (var sfd = new SaveFileDialog())
                         {
-                            sfd.Filter = "ZIPファイル (*.zip)|*.zip";
+                            sfd.Filter = $"圧縮ファイル (*{ext})|*{ext}";
                             sfd.InitialDirectory = defaultDir;
                             sfd.FileName = defaultZipName;
                             sfd.Title = "圧縮ファイルの保存先を選択してください";
@@ -98,7 +212,7 @@ namespace rapid_zipper
 
                     if (!string.IsNullOrEmpty(destZipPath))
                     {
-                        await CompressMultipleItemsAsync(paths, destZipPath);
+                        await CompressMultipleItemsAsync(paths, destZipPath, selectedFormat);
                     }
                     else
                     {
@@ -150,34 +264,27 @@ namespace rapid_zipper
             }
         }
 
-        private async Task CompressFolderAsync(string folderPath)
+        private async Task CompressFolderAsync(string folderPath, string format)
         {
             string parentDir = Path.GetDirectoryName(folderPath) ?? string.Empty;
             string folderName = Path.GetFileName(folderPath);
-            string destZipPath = Path.Combine(parentDir, folderName + ".zip");
 
-            UpdateStatus($"圧縮中: {folderName}.zip");
+            string ext = ".zip";
+            ArchiveType archiveType = ArchiveType.Zip;
 
-            await Task.Run(() =>
+            if (format == "TAR")
             {
-                if (File.Exists(destZipPath))
-                {
-                    File.Delete(destZipPath);
-                }
-                ZipFile.CreateFromDirectory(
-                    folderPath,
-                    destZipPath,
-                    CompressionLevel.Fastest,
-                    includeBaseDirectory: false
-                );
-            });
+                ext = ".tar";
+                archiveType = ArchiveType.Tar;
+            }
+            else if (format.StartsWith("TGZ"))
+            {
+                ext = ".tar.gz";
+                archiveType = ArchiveType.Tar;
+            }
 
-            UpdateStatus("圧縮が完了しました。");
-        }
-
-        private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath)
-        {
-            UpdateStatus("圧縮処理を準備中...");
+            string destZipPath = Path.Combine(parentDir, folderName + ext);
+            UpdateStatus($"圧縮中: {folderName}{ext}");
 
             await Task.Run(() =>
             {
@@ -186,22 +293,23 @@ namespace rapid_zipper
                     File.Delete(destZipPath);
                 }
 
-                int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
-                var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
-
-                using (var archive = ZipFile.Open(destZipPath, ZipArchiveMode.Create, encoding))
+                if (format == "ZIP")
                 {
-                    foreach (var path in sourcePaths)
+                    ZipFile.CreateFromDirectory(folderPath, destZipPath, CompressionLevel.Fastest, includeBaseDirectory: false);
+                }
+                else
+                {
+                    using (var fs = File.OpenWrite(destZipPath))
                     {
-                        if (Directory.Exists(path))
+                        var writerOptions = new WriterOptions(CompressionType.None);
+                        if (format.StartsWith("TGZ"))
                         {
-                            AddDirectoryToArchive(archive, path, path, Path.GetFileName(path));
+                            writerOptions = new WriterOptions(CompressionType.GZip);
                         }
-                        else if (File.Exists(path))
+
+                        using (var writer = WriterFactory.OpenWriter(fs, archiveType, writerOptions))
                         {
-                            string entryName = Path.GetFileName(path);
-                            UpdateStatus($"圧縮中: {entryName}");
-                            archive.CreateEntryFromFile(path, entryName, CompressionLevel.Fastest);
+                            AddDirectoryToWriter(writer, folderPath, folderPath, string.Empty);
                         }
                     }
                 }
@@ -210,72 +318,83 @@ namespace rapid_zipper
             UpdateStatus("圧縮が完了しました。");
         }
 
-        private void AddDirectoryToArchive(ZipArchive archive, string sourceRootDir, string currentDir, string archivePathPrefix)
+        private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath, string format)
+        {
+            UpdateStatus("圧縮処理を準備中...");
+
+            ArchiveType archiveType = ArchiveType.Zip;
+            CompressionType compressionType = CompressionType.Deflate;
+
+            if (format == "TAR")
+            {
+                archiveType = ArchiveType.Tar;
+                compressionType = CompressionType.None;
+            }
+            else if (format.StartsWith("TGZ"))
+            {
+                archiveType = ArchiveType.Tar;
+                compressionType = CompressionType.GZip;
+            }
+
+            await Task.Run(() =>
+            {
+                if (File.Exists(destZipPath))
+                {
+                    File.Delete(destZipPath);
+                }
+
+                using (var fs = File.OpenWrite(destZipPath))
+                {
+                    using (var writer = WriterFactory.OpenWriter(fs, archiveType, new WriterOptions(compressionType)))
+                    {
+                        foreach (var path in sourcePaths)
+                        {
+                            if (Directory.Exists(path))
+                            {
+                                AddDirectoryToWriter(writer, path, path, Path.GetFileName(path));
+                            }
+                            else if (File.Exists(path))
+                            {
+                                string entryName = Path.GetFileName(path);
+                                UpdateStatus($"圧縮中: {entryName}");
+                                writer.Write(entryName, path);
+                            }
+                        }
+                    }
+                }
+            });
+
+            UpdateStatus("圧縮が完了しました。");
+        }
+
+        private void AddDirectoryToWriter(IWriter writer, string sourceRootDir, string currentDir, string archivePathPrefix)
         {
             // ディレクトリ内のファイルを追加
             foreach (var file in Directory.GetFiles(currentDir))
             {
                 string relativePath = Path.GetRelativePath(sourceRootDir, file);
-                string entryName = Path.Combine(archivePathPrefix, relativePath).Replace('\\', '/');
+                string entryName = string.IsNullOrEmpty(archivePathPrefix)
+                    ? relativePath
+                    : Path.Combine(archivePathPrefix, relativePath);
+                entryName = entryName.Replace('\\', '/');
+
                 UpdateStatus($"圧縮中: {Path.GetFileName(file)}");
-                archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
+                writer.Write(entryName, file);
             }
 
             // 子ディレクトリを再帰追加
             foreach (var subDir in Directory.GetDirectories(currentDir))
             {
-                AddDirectoryToArchive(archive, sourceRootDir, subDir, archivePathPrefix);
+                string dirName = Path.GetFileName(subDir);
+                string newPrefix = string.IsNullOrEmpty(archivePathPrefix) ? dirName : Path.Combine(archivePathPrefix, dirName);
+                AddDirectoryToWriter(writer, sourceRootDir, subDir, newPrefix);
             }
         }
 
-        private async Task DecompressZipAsync(string zipFilePath)
+        private async Task DecompressArchiveAsync(string archiveFilePath, string destParentDir)
         {
-            string parentDir = Path.GetDirectoryName(zipFilePath) ?? string.Empty;
-            string zipFileNameWithoutExt = Path.GetFileNameWithoutExtension(zipFilePath);
-
-            UpdateStatus("展開先を選択中...");
-
-            string selectedParentDir = string.Empty;
-
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() =>
-                {
-                    using (var dialog = new FolderBrowserDialog())
-                    {
-                        dialog.Description = "解凍先フォルダを選択してください";
-                        dialog.InitialDirectory = parentDir;
-                        dialog.SelectedPath = parentDir;
-
-                        if (dialog.ShowDialog() == DialogResult.OK)
-                        {
-                            selectedParentDir = dialog.SelectedPath;
-                        }
-                    }
-                }));
-            }
-            else
-            {
-                using (var dialog = new FolderBrowserDialog())
-                {
-                    dialog.Description = "解凍先フォルダを選択してください";
-                    dialog.InitialDirectory = parentDir;
-                    dialog.SelectedPath = parentDir;
-
-                    if (dialog.ShowDialog() == DialogResult.OK)
-                    {
-                        selectedParentDir = dialog.SelectedPath;
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(selectedParentDir))
-            {
-                UpdateStatus("展開をキャンセルしました。");
-                return;
-            }
-
-            string destDirBase = Path.Combine(selectedParentDir, zipFileNameWithoutExt);
+            string archiveFileNameWithoutExt = Path.GetFileNameWithoutExtension(archiveFilePath);
+            string destDirBase = Path.Combine(destParentDir, archiveFileNameWithoutExt);
             string destDir = destDirBase;
 
             // 重複チェック
@@ -288,7 +407,7 @@ namespace rapid_zipper
                     Invoke(new Action(() =>
                     {
                         result = MessageBox.Show(
-                            "展開先フォルダが既に存在します。上書きしますか？\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
+                            $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
                             "展開先の重複",
                             MessageBoxButtons.YesNoCancel,
                             MessageBoxIcon.Question
@@ -298,7 +417,7 @@ namespace rapid_zipper
                 else
                 {
                     result = MessageBox.Show(
-                        "展開先フォルダが既に存在します。上書きしますか？\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
+                        $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
                         "展開先の重複",
                         MessageBoxButtons.YesNoCancel,
                         MessageBoxIcon.Question
@@ -308,14 +427,12 @@ namespace rapid_zipper
                 if (result == DialogResult.Yes)
                 {
                     UpdateStatus("既存のフォルダを退避中...");
-                    
-                    // 同一ドライブ内にユニークな一時名を作成して移動
                     string tempGarbageDir = destDir + "_to_delete_" + Guid.NewGuid().ToString("N");
-                    
+
                     try
                     {
                         Directory.Move(destDir, tempGarbageDir);
-                        
+
                         // バックグラウンド削除
                         _ = Task.Run(() =>
                         {
@@ -359,64 +476,99 @@ namespace rapid_zipper
             int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
             var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
 
-            // まず展開先ルートディレクトリを作成
+            var options = new ReaderOptions
+            {
+                ArchiveEncoding = new ArchiveEncoding { Default = encoding }
+            };
+
+            // まず展開先フォルダを作成
             Directory.CreateDirectory(destDir);
 
-            // ZIPファイルのエントリー名一覧を取得
-            var entryNames = new System.Collections.Generic.List<string>();
-
+            // シーケンシャルで各ファイルを安全かつ高速に展開 (スキャン競合を最小化するため)
             await Task.Run(() =>
             {
-                using (var archive = ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding))
+                using (var archive = ArchiveFactory.OpenArchive(archiveFilePath, options))
                 {
                     foreach (var entry in archive.Entries)
                     {
-                        if (!string.IsNullOrEmpty(entry.Name)) // ファイルエントリー
+                        if (!entry.IsDirectory)
                         {
-                            entryNames.Add(entry.FullName);
-                        }
-                        else
-                        {
-                            // ディレクトリのみのエントリーを事前作成
-                            var dirPath = Path.Combine(destDir, entry.FullName);
-                            Directory.CreateDirectory(dirPath);
+                            entry.WriteToDirectory(destDir, new ExtractionOptions
+                            {
+                                ExtractFullPath = true,
+                                Overwrite = true
+                            });
                         }
                     }
                 }
             });
+        }
 
-            UpdateStatus($"展開中: {Path.GetFileName(destDir)}");
+        private async Task DecompressMultipleArchivesAsync(string[] archiveFilePaths)
+        {
+            string firstFileDir = Path.GetDirectoryName(archiveFilePaths[0]) ?? string.Empty;
+            UpdateStatus("展開先を選択中...");
 
-            // 並列で各ファイルを解凍 (I/O・スキャン競合を抑えるために並列度を最大4に制限)
-            await Task.Run(() =>
+            string selectedParentDir = string.Empty;
+
+            if (InvokeRequired)
             {
-                Parallel.ForEach<string, ZipArchive>(
-                    entryNames,
-                    new ParallelOptions { MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount) },
-                    () => ZipFile.Open(zipFilePath, ZipArchiveMode.Read, encoding),
-                    (entryName, loopState, archive) =>
+                Invoke(new Action(() =>
+                {
+                    using (var dialog = new FolderBrowserDialog())
                     {
-                        var entry = archive.GetEntry(entryName);
-                        if (entry != null)
+                        dialog.Description = "すべてのアーカイブファイルの解凍先親フォルダを選択してください";
+                        dialog.InitialDirectory = firstFileDir;
+                        dialog.SelectedPath = firstFileDir;
+
+                        if (dialog.ShowDialog() == DialogResult.OK)
                         {
-                            string targetFilePath = Path.Combine(destDir, entry.FullName);
-                            string? targetFileDir = Path.GetDirectoryName(targetFilePath);
-                            if (targetFileDir != null)
-                            {
-                                Directory.CreateDirectory(targetFileDir);
-                            }
-
-                            entry.ExtractToFile(targetFilePath, overwrite: true);
+                            selectedParentDir = dialog.SelectedPath;
                         }
-                        return archive;
-                    },
-                    (archive) => archive.Dispose()
-                );
-            });
+                    }
+                }));
+            }
+            else
+            {
+                using (var dialog = new FolderBrowserDialog())
+                {
+                    dialog.Description = "すべてのアーカイブファイルの解凍先親フォルダを選択してください";
+                    dialog.InitialDirectory = firstFileDir;
+                    dialog.SelectedPath = firstFileDir;
 
-            UpdateStatus("展開が完了しました。");
+                    if (dialog.ShowDialog() == DialogResult.OK)
+                    {
+                        selectedParentDir = dialog.SelectedPath;
+                    }
+                }
+            }
 
-            // 完了後のフォルダオープン確認
+            if (string.IsNullOrEmpty(selectedParentDir))
+            {
+                UpdateStatus("展開をキャンセルしました。");
+                return;
+            }
+
+            int totalFiles = archiveFilePaths.Length;
+            for (int i = 0; i < totalFiles; i++)
+            {
+                string filePath = archiveFilePaths[i];
+                UpdateStatus($"[{i + 1}/{totalFiles}] 展開中: {Path.GetFileName(filePath)}...");
+
+                try
+                {
+                    await DecompressArchiveAsync(filePath, selectedParentDir);
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatus($"エラー ({Path.GetFileName(filePath)}): {ex.Message}");
+                    MessageBox.Show($"展開中にエラーが発生しました: {Path.GetFileName(filePath)}\n{ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            UpdateStatus("すべての展開処理が完了しました。");
+
+            // 完了後の親フォルダオープン確認
             DialogResult openFolderResult = DialogResult.None;
 
             if (InvokeRequired)
@@ -424,7 +576,7 @@ namespace rapid_zipper
                 Invoke(new Action(() =>
                 {
                     openFolderResult = MessageBox.Show(
-                        "展開が完了しました。フォルダを開きますか？",
+                        "すべての展開が完了しました。展開先フォルダを開きますか？",
                         "完了",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question
@@ -434,7 +586,7 @@ namespace rapid_zipper
             else
             {
                 openFolderResult = MessageBox.Show(
-                    "展開が完了しました。フォルダを開きますか？",
+                    "すべての展開が完了しました。展開先フォルダを開きますか？",
                     "完了",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question
@@ -447,7 +599,7 @@ namespace rapid_zipper
                 {
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
                     {
-                        FileName = destDir,
+                        FileName = selectedParentDir,
                         UseShellExecute = true
                     });
                 }
@@ -467,6 +619,10 @@ namespace rapid_zipper
         }
 
         private void progressBar1_Click(object sender, EventArgs e)
+        {
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
         }
     }

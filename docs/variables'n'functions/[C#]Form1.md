@@ -4,7 +4,7 @@
 
 ## 1. クラス定義
 
-### `RapidZipper` (行 9)
+### `RapidZipper` (行 13)
 - **型**: `partial class` (継承: `Form`)
 - **役割**: メインのWindows Formsアプリケーション画面のコントロールとロジックを保持する部分クラス。
 
@@ -12,88 +12,96 @@
 
 ## 2. 関数定義
 
-### `Form1_Load` (行 16)
+### `Form1_Load` (行 21)
 - **型**: `private void`
-- **引数**:
-  - `object sender`: イベント発生元
-  - `EventArgs e`: イベント引数
-- **役割**: フォームロード時の初期化処理（現在はプレースホルダー）。
+- **役割**: フォームロード時の処理。
 
-### `RapidZipper_DragEnter` (行 20)
+### `InitializeFormatComboBox` (行 25)
+- **型**: `private void`
+- **役割**: `FormatComboBox` の選択項目に "ZIP", "TAR", "TGZ (tar.gz)" を追加し、デフォルト選択を "ZIP" に設定する。
+
+### `RapidZipper_DragEnter` (行 34)
 - **型**: `private void`
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドラッグイベント引数
 - **役割**: フォームまたはパネル上にデータがドラッグされた際、ファイル（FileDrop）であれば `DragDropEffects.Copy` を設定して受け入れ状態にする。
 
-### `RapidZipper_DragDrop` (行 32)
+### `RapidZipper_DragDrop` (行 53)
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドロップイベント引数
-- **役割**: ファイルがドロップされた際、フォルダが1つなら `CompressFolderAsync` を、ZIPが1つなら `DecompressZipAsync` を実行。それ以外の複数ファイル・混在の場合は `SaveFileDialog` を表示して `CompressMultipleItemsAsync` を呼び出し、1つのZIPファイルにまとめ圧縮する。
-- **依存関係**: `SetUIProcessing`, `CompressFolderAsync`, `DecompressZipAsync`, `CompressMultipleItemsAsync`, `UpdateStatus`
+- **役割**: ファイルがドロップされた際、アーカイブファイル（ZIP, 7z, RAR, TAR, GZ, TGZ）が含まれている場合は展開処理を実行。フォルダ1つなら `CompressFolderAsync` を、その他混在なら `CompressMultipleItemsAsync` を実行し、`FormatComboBox` の選択フォーマット（ZIP/TAR/TGZ）で圧縮アーカイブを作成する。
+- **依存関係**: `IsArchiveFile`, `DecompressArchiveAsync`, `DecompressMultipleArchivesAsync`, `CompressFolderAsync`, `CompressMultipleItemsAsync`, `SetUIProcessing`
 
-### `UpdateStatus` (行 119)
+### `UpdateStatus` (行 233)
 - **型**: `private void`
 - **引数**:
   - `string message`: 表示するステータスメッセージ
 - **役割**: `Statuslabel` コントロールのテキストを安全に（InvokeRequiredを考慮して）更新する。
 - **影響範囲**: アプリケーション内の全ステータス表示更新
 
-### `SetUIProcessing` (行 131)
+### `SetUIProcessing` (行 245)
 - **型**: `private void`
 - **引数**:
   - `bool isProcessing`: 処理中かどうかのフラグ
 - **役割**: 処理中のプログレスバー表示の切り替え（Marqueeアニメーション開始/停止）および多重ドロップ防止のためのパネル活性制御を安全に（InvokeRequiredを考慮して）行う。
 - **影響範囲**: `ProcessingBar`, `DragDropPanel`
 
-### `CompressFolderAsync` (行 153)
+### `CompressFolderAsync` (行 267)
 - **型**: `private async Task`
 - **引数**:
   - `string folderPath`: 圧縮対象フォルダの絶対パス
-- **役割**: 指定された単一フォルダを、同一階層内に同名でZIP圧縮する（圧縮レベル：`Fastest`）。既存の同名ファイルがある場合は上書き。
-- **依存関係**: `UpdateStatus`
-- **影響範囲**: バックグラウンドスレッドでのIO処理
+  - `string format`: 圧縮フォーマット ("ZIP" / "TAR" / "TGZ (tar.gz)")
+- **役割**: 指定された単一フォルダを、指定フォーマットで同一階層内に圧縮・生成する（圧縮レベル：`Fastest`）。
+- **依存関係**: `AddDirectoryToWriter`, `UpdateStatus`
+- **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `CompressMultipleItemsAsync` (行 178)
+### `CompressMultipleItemsAsync` (行 321)
 - **型**: `private async Task`
 - **引数**:
   - `string[] sourcePaths`: 圧縮対象ファイル・フォルダのパス配列
   - `string destZipPath`: 出力先ZIPファイルの絶対パス
-- **役割**: 指定された複数のアイテムを1つのZIPファイルにまとめて非同期で圧縮する。
-- **依存関係**: `AddDirectoryToArchive`, `UpdateStatus`
+  - `string format`: 圧縮フォーマット ("ZIP" / "TAR" / "TGZ (tar.gz)")
+- **役割**: 指定された複数のアイテムを1つのアーカイブファイルにまとめて非同期で圧縮する。
+- **依存関係**: `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `AddDirectoryToArchive` (行 213)
+### `AddDirectoryToWriter` (行 370)
 - **型**: `private void`
 - **引数**:
-  - `ZipArchive archive`: 書き込み対象ZIPアーカイブ
+  - `IWriter writer`: SharpCompressのアーカイブライター
   - `string sourceRootDir`: 圧縮元のベースディレクトリ
   - `string currentDir`: 現在走査中のサブディレクトリ
   - `string archivePathPrefix`: アーカイブ内でのフォルダ名プレフィックス
-- **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的（再帰呼び出し）にZIPアーカイブに追加する。
-- **依存関係**: `UpdateStatus`, `AddDirectoryToArchive`（自己再帰）
+- **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的（再帰呼び出し）に `IWriter` を用いてアーカイブに追加する。
+- **依存関係**: `UpdateStatus`, `AddDirectoryToWriter`（自己再帰）
 
-### `DecompressZipAsync` (行 231)
+### `DecompressArchiveAsync` (行 392)
 - **型**: `private async Task`
 - **引数**:
-  - `string zipFilePath`: 展開対象ZIPファイルの絶対パス
-- **役割**: 指定されたZIPファイルを非同期で展開する。
-  - **展開先フォルダ選択**: 展開前に `FolderBrowserDialog` を表示し、ユーザーが展開先の親フォルダを自由に指定できるようにする。デフォルトはZIPと同じフォルダ。
-  - OSの標準コードページ (`CultureInfo.CurrentCulture.TextInfo.ANSICodePage`) を用いてエンコーディングを自動決定し、非UTF-8 of ZIPファイルの文字化けを防止。
+  - `string archiveFilePath`: 展開対象アーカイブファイルの絶対パス
+  - `string destParentDir`: 展開先親フォルダの絶対パス
+- **役割**: 指定されたアーカイブファイルを非同期で展開する。
+  - **自動フォーマット検出 (SharpCompress)**: `SharpCompress` ライブラリの `ArchiveFactory.Open` を用いて、ZIP/7z/RAR/TAR/GZ/TGZなどのフォーマットを自動検出して展開。
+  - OSの標準コードページ (`CultureInfo.CurrentCulture.TextInfo.ANSICodePage`) を用いてエンコーディングを自動決定し、文字化けを防止。
   - 展開先フォルダが既に存在する場合は、ダイアログを介して「上書き」「別名保存」「キャンセル」を選択させる。
   - **高速上書き対応 (Move-and-Delete)**: 上書き選択時、既存フォルダの完全削除を待たずに、一瞬でユニークな一時フォルダ名に `Directory.Move` で退避させ、即座に展開処理を開始。退避したフォルダの実際の削除は別スレッドのバックグラウンド (`Task.Run`) で非同期に行うことで、上書き時の待ち時間をほぼゼロに短縮する。
-  - **マルチスレッド（並列）展開 (並列度制限調整版)**: 
-    - ZIP内の全ファイルエントリーの展開を `Parallel.ForEach` で処理。
-    - **スレッドローカル最適化**: 各スレッドの開始時に1回だけZIPを開き、スレッド内部の解凍で `ZipArchive` インスタンスを再利用することで、オープン処理のボトルネックを完全に解消。
-    - **I/O競合・Defender影響緩和**: ディスク書き込みおよびセキュリティスキャン競合を防ぐため、最大並列度（`MaxDegreeOfParallelism`）を `Math.Min(4, Environment.ProcessorCount)` に制限。
-  - **自動オープン確認**: 展開完了後、メッセージボックスで「フォルダを開きますか？」と確認し、選択された場合に `Process.Start` で展開先フォルダを自動オープン。
 - **依存関係**: `UpdateStatus`
-- **影響範囲**: バックグラウンドスレッドでのIO処理、およびユーザー選択ダイアログ表示
-- **使用するOSコンポーネント**: `FolderBrowserDialog`, `explorer.exe` (via Process.Start)
+- **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
-### `panel1_Paint` (行 461) / `label1_Click` (行 465) / `progressBar1_Click` (行 469)
+### `DecompressMultipleArchivesAsync` (行 505)
+- **型**: `private async Task`
+- **引数**:
+  - `string[] archiveFilePaths`: 展開対象アーカイブファイルのパス配列
+- **役割**: 複数の圧縮ファイルを順次連続展開するキューシステム。
+  - 最初に1回だけ「共通の解凍先親フォルダ」を選んでもらうダイアログを表示。
+  - 以降はバックグラウンドのループ（タスクキュー）で各ファイルを順番に `DecompressArchiveAsync` で解凍。
+  - 進行状況を 「[1/3] 展開中: ファイル名...」 の形式で表示。
+- **依存関係**: `DecompressArchiveAsync`, `UpdateStatus`
+
+### `panel1_Paint` (行 611) / `label1_Click` (行 615) / `progressBar1_Click` (行 619) / `comboBox1_SelectedIndexChanged` (行 623)
 - **型**: `private void`
 - **役割**: デザイナーから自動登録されたイベントハンドラのプレースホルダー。
 
@@ -105,15 +113,19 @@
 graph TD
     RapidZipper_DragDrop --> SetUIProcessing
     RapidZipper_DragDrop --> CompressFolderAsync
-    RapidZipper_DragDrop --> DecompressZipAsync
+    RapidZipper_DragDrop --> DecompressArchiveAsync
+    RapidZipper_DragDrop --> DecompressMultipleArchivesAsync
     RapidZipper_DragDrop --> CompressMultipleItemsAsync
     RapidZipper_DragDrop --> UpdateStatus
+    CompressFolderAsync --> AddDirectoryToWriter
     CompressFolderAsync --> UpdateStatus
-    CompressMultipleItemsAsync --> AddDirectoryToArchive
+    CompressMultipleItemsAsync --> AddDirectoryToWriter
     CompressMultipleItemsAsync --> UpdateStatus
-    AddDirectoryToArchive --> UpdateStatus
-    AddDirectoryToArchive --> AddDirectoryToArchive
-    DecompressZipAsync --> UpdateStatus
+    AddDirectoryToWriter --> UpdateStatus
+    AddDirectoryToWriter --> AddDirectoryToWriter
+    DecompressArchiveAsync --> UpdateStatus
+    DecompressMultipleArchivesAsync --> DecompressArchiveAsync
+    DecompressMultipleArchivesAsync --> UpdateStatus
 ```
 
 ### 影響範囲 (Impact Scope)
