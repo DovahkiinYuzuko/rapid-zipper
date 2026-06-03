@@ -7,6 +7,7 @@ using SharpCompress.Archives;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 using SharpCompress.Writers;
+using SevenZip;
 
 namespace rapid_zipper
 {
@@ -16,6 +17,8 @@ namespace rapid_zipper
         {
             InitializeComponent();
             InitializeFormatComboBox();
+            // 7z.dll のロードパス設定 (7z.Libsパッケージが x64/x86 フォルダに出力するDLLをロード)
+            SevenZipBase.SetLibraryPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Environment.Is64BitProcess ? "x64" : "x86", "7z.dll"));
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -26,6 +29,7 @@ namespace rapid_zipper
         {
             FormatComboBox.Items.Clear();
             FormatComboBox.Items.Add("ZIP");
+            FormatComboBox.Items.Add("7Z");
             FormatComboBox.Items.Add("TAR");
             FormatComboBox.Items.Add("TGZ (tar.gz)");
             FormatComboBox.SelectedIndex = 0;
@@ -167,6 +171,7 @@ namespace rapid_zipper
                     string ext = ".zip";
                     if (selectedFormat == "TAR") ext = ".tar";
                     else if (selectedFormat.StartsWith("TGZ")) ext = ".tar.gz";
+                    else if (selectedFormat == "7Z") ext = ".7z";
 
                     string defaultZipName = "archive" + ext;
                     if (paths.Length == 1)
@@ -282,6 +287,10 @@ namespace rapid_zipper
                 ext = ".tar.gz";
                 archiveType = ArchiveType.Tar;
             }
+            else if (format == "7Z")
+            {
+                ext = ".7z";
+            }
 
             string destZipPath = Path.Combine(parentDir, folderName + ext);
             UpdateStatus($"圧縮中: {folderName}{ext}");
@@ -295,7 +304,17 @@ namespace rapid_zipper
 
                 if (format == "ZIP")
                 {
-                    ZipFile.CreateFromDirectory(folderPath, destZipPath, CompressionLevel.Fastest, includeBaseDirectory: false);
+                    ZipFile.CreateFromDirectory(folderPath, destZipPath, System.IO.Compression.CompressionLevel.Fastest, includeBaseDirectory: false);
+                }
+                else if (format == "7Z")
+                {
+                    var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
+                    AddDirectoryToDictionary(filesToCompress, folderPath, folderPath, string.Empty);
+
+                    var compressor = new SevenZipCompressor();
+                    compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
+                    compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
                 {
@@ -343,21 +362,45 @@ namespace rapid_zipper
                     File.Delete(destZipPath);
                 }
 
-                using (var fs = File.OpenWrite(destZipPath))
+                if (format == "7Z")
                 {
-                    using (var writer = WriterFactory.OpenWriter(fs, archiveType, new WriterOptions(compressionType)))
+                    var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
+                    foreach (var path in sourcePaths)
                     {
-                        foreach (var path in sourcePaths)
+                        if (Directory.Exists(path))
                         {
-                            if (Directory.Exists(path))
+                            AddDirectoryToDictionary(filesToCompress, path, path, Path.GetFileName(path));
+                        }
+                        else if (File.Exists(path))
+                        {
+                            string entryName = Path.GetFileName(path);
+                            filesToCompress[entryName] = path;
+                        }
+                    }
+
+                    var compressor = new SevenZipCompressor();
+                    compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
+                    compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressFileDictionary(filesToCompress, destZipPath);
+                }
+                else
+                {
+                    using (var fs = File.OpenWrite(destZipPath))
+                    {
+                        using (var writer = WriterFactory.OpenWriter(fs, archiveType, new WriterOptions(compressionType)))
+                        {
+                            foreach (var path in sourcePaths)
                             {
-                                AddDirectoryToWriter(writer, path, path, Path.GetFileName(path));
-                            }
-                            else if (File.Exists(path))
-                            {
-                                string entryName = Path.GetFileName(path);
-                                UpdateStatus($"圧縮中: {entryName}");
-                                writer.Write(entryName, path);
+                                if (Directory.Exists(path))
+                                {
+                                    AddDirectoryToWriter(writer, path, path, Path.GetFileName(path));
+                                }
+                                else if (File.Exists(path))
+                                {
+                                    string entryName = Path.GetFileName(path);
+                                    UpdateStatus($"圧縮中: {entryName}");
+                                    writer.Write(entryName, path);
+                                }
                             }
                         }
                     }
@@ -365,6 +408,30 @@ namespace rapid_zipper
             });
 
             UpdateStatus("圧縮が完了しました。");
+        }
+
+        private void AddDirectoryToDictionary(System.Collections.Generic.Dictionary<string, string> dict, string sourceRootDir, string currentDir, string archivePathPrefix)
+        {
+            // ディレクトリ内のファイルを追加
+            foreach (var file in Directory.GetFiles(currentDir))
+            {
+                string relativePath = Path.GetRelativePath(sourceRootDir, file);
+                string entryName = string.IsNullOrEmpty(archivePathPrefix)
+                    ? relativePath
+                    : Path.Combine(archivePathPrefix, relativePath);
+                entryName = entryName.Replace('\\', '/');
+
+                UpdateStatus($"圧縮中: {Path.GetFileName(file)}");
+                dict[entryName] = file;
+            }
+
+            // 子ディレクトリを再帰追加
+            foreach (var subDir in Directory.GetDirectories(currentDir))
+            {
+                string dirName = Path.GetFileName(subDir);
+                string newPrefix = string.IsNullOrEmpty(archivePathPrefix) ? dirName : Path.Combine(archivePathPrefix, dirName);
+                AddDirectoryToDictionary(dict, sourceRootDir, subDir, newPrefix);
+            }
         }
 
         private void AddDirectoryToWriter(IWriter writer, string sourceRootDir, string currentDir, string archivePathPrefix)
