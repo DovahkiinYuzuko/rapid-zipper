@@ -183,7 +183,19 @@ namespace rapid_zipper
                 // 2. 単一のフォルダがドロップされた場合（自動圧縮）
                 else if (paths.Length == 1 && Directory.Exists(paths[0]))
                 {
-                    await CompressFolderAsync(paths[0], selectedFormat);
+                    SevenZip.CompressionLevel sevenZipLevel = SevenZip.CompressionLevel.Normal;
+                    if (selectedFormat == "7Z")
+                    {
+                        if (InvokeRequired)
+                        {
+                            Invoke(new Action(() => sevenZipLevel = PromptCompressionLevel()));
+                        }
+                        else
+                        {
+                            sevenZipLevel = PromptCompressionLevel();
+                        }
+                    }
+                    await CompressFolderAsync(paths[0], selectedFormat, sevenZipLevel);
                 }
                 // 3. それ以外（複数アイテムを1つのアーカイブに圧縮）
                 else
@@ -239,7 +251,19 @@ namespace rapid_zipper
 
                     if (!string.IsNullOrEmpty(destZipPath))
                     {
-                        await CompressMultipleItemsAsync(paths, destZipPath, selectedFormat);
+                        SevenZip.CompressionLevel sevenZipLevel = SevenZip.CompressionLevel.Normal;
+                        if (selectedFormat == "7Z")
+                        {
+                            if (InvokeRequired)
+                            {
+                                Invoke(new Action(() => sevenZipLevel = PromptCompressionLevel()));
+                            }
+                            else
+                            {
+                                sevenZipLevel = PromptCompressionLevel();
+                            }
+                        }
+                        await CompressMultipleItemsAsync(paths, destZipPath, selectedFormat, sevenZipLevel);
                     }
                     else
                     {
@@ -291,7 +315,7 @@ namespace rapid_zipper
             }
         }
 
-        private async Task CompressFolderAsync(string folderPath, string format)
+        private async Task CompressFolderAsync(string folderPath, string format, SevenZip.CompressionLevel sevenZipLevel = SevenZip.CompressionLevel.Normal)
         {
             string parentDir = Path.GetDirectoryName(folderPath) ?? string.Empty;
             string folderName = Path.GetFileName(folderPath);
@@ -337,12 +361,29 @@ namespace rapid_zipper
                     UpdateStatus("7z圧縮中...");
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
-                    compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressionLevel = sevenZipLevel;
                     compressor.CompressionMethod = CompressionMethod.Lzma2;
                     compressor.FastCompression = true;
-                    compressor.CustomParameters.Add("d", "8m");
-                    int threads = Math.Max(2, Environment.ProcessorCount / 2);
-                    compressor.CustomParameters.Add("mt", threads.ToString());
+
+                    int maxThreads = Math.Max(2, Environment.ProcessorCount / 2);
+                    string dictSize = "8m";
+
+                    if (sevenZipLevel == SevenZip.CompressionLevel.Low)
+                    {
+                        dictSize = "4m";
+                    }
+                    else if (sevenZipLevel == SevenZip.CompressionLevel.High)
+                    {
+                        dictSize = "32m";
+                        maxThreads = Math.Min(4, maxThreads); // 高圧縮時はメモリ制限のためスレッド数を絞る
+                    }
+                    else
+                    {
+                        dictSize = "8m";
+                    }
+
+                    compressor.CustomParameters.Add("d", dictSize);
+                    compressor.CustomParameters.Add("mt", maxThreads.ToString());
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -366,7 +407,7 @@ namespace rapid_zipper
             UpdateStatus("圧縮が完了しました。");
         }
 
-        private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath, string format)
+        private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath, string format, SevenZip.CompressionLevel sevenZipLevel = SevenZip.CompressionLevel.Normal)
         {
             UpdateStatus("圧縮処理を準備中...");
 
@@ -411,12 +452,29 @@ namespace rapid_zipper
                     UpdateStatus("7z圧縮中...");
                     var compressor = new SevenZipCompressor();
                     compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
-                    compressor.CompressionLevel = SevenZip.CompressionLevel.Normal;
+                    compressor.CompressionLevel = sevenZipLevel;
                     compressor.CompressionMethod = CompressionMethod.Lzma2;
                     compressor.FastCompression = true;
-                    compressor.CustomParameters.Add("d", "8m");
-                    int threads = Math.Max(2, Environment.ProcessorCount / 2);
-                    compressor.CustomParameters.Add("mt", threads.ToString());
+
+                    int maxThreads = Math.Max(2, Environment.ProcessorCount / 2);
+                    string dictSize = "8m";
+
+                    if (sevenZipLevel == SevenZip.CompressionLevel.Low)
+                    {
+                        dictSize = "4m";
+                    }
+                    else if (sevenZipLevel == SevenZip.CompressionLevel.High)
+                    {
+                        dictSize = "32m";
+                        maxThreads = Math.Min(4, maxThreads); // 高圧縮時はメモリ制限のためスレッド数を絞る
+                    }
+                    else
+                    {
+                        dictSize = "8m";
+                    }
+
+                    compressor.CustomParameters.Add("d", dictSize);
+                    compressor.CustomParameters.Add("mt", maxThreads.ToString());
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -444,6 +502,50 @@ namespace rapid_zipper
             });
 
             UpdateStatus("圧縮が完了しました。");
+        }
+
+        private SevenZip.CompressionLevel PromptCompressionLevel()
+        {
+            using (var prompt = new Form())
+            {
+                prompt.Width = 320;
+                prompt.Height = 200;
+                prompt.Text = "7z 圧縮レベルの選択";
+                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
+                prompt.StartPosition = FormStartPosition.CenterParent;
+                prompt.MaximizeBox = false;
+                prompt.MinimizeBox = false;
+
+                var label = new Label() 
+                { 
+                    Left = 20, 
+                    Top = 20, 
+                    Width = 260, 
+                    Height = 30,
+                    Text = "7zの圧縮レベルを選択してください\n(高レベルほど高圧縮ですが、メモリと時間がかかります)" 
+                };
+                
+                var radioLow = new RadioButton() { Left = 30, Top = 55, Width = 240, Text = "低 (高速・省メモリ - 辞書4MB)", Checked = false };
+                var radioNormal = new RadioButton() { Left = 30, Top = 80, Width = 240, Text = "普通 (バランス・現在設定 - 辞書8MB)", Checked = true };
+                var radioHigh = new RadioButton() { Left = 30, Top = 105, Width = 240, Text = "高 (高圧縮・メモリ多消費 - 辞書32MB)", Checked = false };
+
+                var buttonOk = new Button() { Text = "決定", Left = 190, Top = 130, Width = 80, DialogResult = DialogResult.OK };
+                
+                prompt.Controls.Add(label);
+                prompt.Controls.Add(radioLow);
+                prompt.Controls.Add(radioNormal);
+                prompt.Controls.Add(radioHigh);
+                prompt.Controls.Add(buttonOk);
+                prompt.AcceptButton = buttonOk;
+
+                buttonOk.Click += (sender, e) => { prompt.Close(); };
+
+                prompt.ShowDialog();
+
+                if (radioLow.Checked) return SevenZip.CompressionLevel.Low;
+                if (radioHigh.Checked) return SevenZip.CompressionLevel.High;
+                return SevenZip.CompressionLevel.Normal;
+            }
         }
 
         private void AddDirectoryToDictionary(System.Collections.Generic.Dictionary<string, string> dict, string sourceRootDir, string currentDir, string archivePathPrefix)
