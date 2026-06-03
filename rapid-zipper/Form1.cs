@@ -34,23 +34,34 @@ namespace rapid_zipper
                     }
                 }
 
-                // 2. 7z.dllのパスをUnicodeを含まないTempフォルダに退避させてロード (SevenZipSharpのUnicodeパスバグ回避策)
-                // 予測不可能なGUID付きのフォルダ名にすることで、VULN-001のDLL上書き脆弱性を防止
-                string sourceDllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Environment.Is64BitProcess ? "x64" : "x86", "7z.dll");
-                if (File.Exists(sourceDllPath))
-                {
-                    string randomFolderName = "RapidZipper_7z_" + Guid.NewGuid().ToString("N");
-                    string tempDir = Path.Combine(tempParent, randomFolderName, Environment.Is64BitProcess ? "x64" : "x86");
-                    Directory.CreateDirectory(tempDir);
-                    string destDllPath = Path.Combine(tempDir, "7z.dll");
+                // 2. 埋め込みリソースから 7z.dll を Unicode を含まない Temp フォルダに展開してロード
+                // (SevenZipSharpのUnicodeパスバグ回避策 & ポータブルなシングルファイル化 & VULN-001のDLL上書き脆弱性防止)
+                string resourceName = Environment.Is64BitProcess 
+                    ? "rapid_zipper.Resources.x64.7z.dll" 
+                    : "rapid_zipper.Resources.x86.7z.dll";
 
-                    // 最新のDLLを一時フォルダにコピーしてロード
-                    File.Copy(sourceDllPath, destDllPath, overwrite: true);
-                    SevenZipBase.SetLibraryPath(destDllPath);
-                }
-                else
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                using (Stream? resourceStream = assembly.GetManifestResourceStream(resourceName))
                 {
-                    System.Diagnostics.Debug.WriteLine("警告: 7z.dll が見つかりません。");
+                    if (resourceStream != null)
+                    {
+                        string randomFolderName = "RapidZipper_7z_" + Guid.NewGuid().ToString("N");
+                        string tempDir = Path.Combine(tempParent, randomFolderName, Environment.Is64BitProcess ? "x64" : "x86");
+                        Directory.CreateDirectory(tempDir);
+                        string destDllPath = Path.Combine(tempDir, "7z.dll");
+
+                        // 埋め込みリソースのデータを一時ファイルに書き出す
+                        using (FileStream fileStream = new FileStream(destDllPath, FileMode.Create, FileAccess.Write))
+                        {
+                            resourceStream.CopyTo(fileStream);
+                        }
+
+                        SevenZipBase.SetLibraryPath(destDllPath);
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"警告: 埋め込みリソース {resourceName} が見つかりません。");
+                    }
                 }
             }
             catch (Exception ex)
@@ -217,7 +228,7 @@ namespace rapid_zipper
                 else
                 {
                     string defaultDir = Path.GetDirectoryName(paths[0]) ?? string.Empty;
-                    
+
                     string ext = ".zip";
                     if (selectedFormat == "TAR") ext = ".tar";
                     else if (selectedFormat.StartsWith("TGZ")) ext = ".tar.gz";
@@ -532,21 +543,21 @@ namespace rapid_zipper
                 prompt.MaximizeBox = false;
                 prompt.MinimizeBox = false;
 
-                var label = new Label() 
-                { 
-                    Left = 20, 
-                    Top = 15, 
-                    Width = 360, 
+                var label = new Label()
+                {
+                    Left = 20,
+                    Top = 15,
+                    Width = 360,
                     Height = 35,
-                    Text = "7zの圧縮レベルを選択してください\n(高レベルほど高圧縮ですが、メモリと時間がかかります)" 
+                    Text = "7zの圧縮レベルを選択してください\n(高レベルほど高圧縮ですが、メモリと時間がかかります)"
                 };
-                
+
                 var radioLow = new RadioButton() { Left = 30, Top = 55, Width = 340, Text = "低 (高速・省メモリ - 辞書4MB)", Checked = false };
                 var radioNormal = new RadioButton() { Left = 30, Top = 80, Width = 340, Text = "普通 (バランス - 辞書8MB)", Checked = true };
                 var radioHigh = new RadioButton() { Left = 30, Top = 105, Width = 340, Text = "高 (高圧縮 - 辞書32MB - 最大4スレッド)", Checked = false };
 
                 var buttonOk = new Button() { Text = "決定", Left = 280, Top = 135, Width = 80, DialogResult = DialogResult.OK };
-                
+
                 prompt.Controls.Add(label);
                 prompt.Controls.Add(radioLow);
                 prompt.Controls.Add(radioNormal);
@@ -865,6 +876,11 @@ namespace rapid_zipper
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
+        }
+
+        private void label1_Click_1(object sender, EventArgs e)
+        {
+
         }
     }
 }

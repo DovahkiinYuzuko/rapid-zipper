@@ -1,0 +1,10 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <!-- パッケージ (MSI) を出力する -->
+    <OutputType>Package</OutputType>
+    <!-- 出力ファイル名 -->
+    <OutputName>rapid-zipper</OutputName>
+    <!-- プラットフォームをx64にする -->
+    <Platform>x64</Platform>
+  </PropertyGroup>
+</Project>

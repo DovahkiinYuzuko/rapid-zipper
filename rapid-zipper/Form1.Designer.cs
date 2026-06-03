@@ -29,15 +29,17 @@
         private void InitializeComponent()
         {
             DragDropPanel = new Panel();
+            FormatComboBox = new ComboBox();
             ProcessingBar = new ProgressBar();
             Statuslabel = new Label();
-            FormatComboBox = new ComboBox();
+            label1 = new Label();
             DragDropPanel.SuspendLayout();
             SuspendLayout();
             // 
             // DragDropPanel
             // 
             DragDropPanel.AllowDrop = true;
+            DragDropPanel.Controls.Add(label1);
             DragDropPanel.Controls.Add(FormatComboBox);
             DragDropPanel.Controls.Add(ProcessingBar);
             DragDropPanel.Controls.Add(Statuslabel);
@@ -49,6 +51,16 @@
             DragDropPanel.DragDrop += RapidZipper_DragDrop;
             DragDropPanel.DragEnter += RapidZipper_DragEnter;
             DragDropPanel.Paint += panel1_Paint;
+            // 
+            // FormatComboBox
+            // 
+            FormatComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            FormatComboBox.FormattingEnabled = true;
+            FormatComboBox.Location = new Point(95, 49);
+            FormatComboBox.Name = "FormatComboBox";
+            FormatComboBox.Size = new Size(121, 23);
+            FormatComboBox.TabIndex = 2;
+            FormatComboBox.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
             // 
             // ProcessingBar
             // 
@@ -70,15 +82,15 @@
             Statuslabel.TextAlign = ContentAlignment.MiddleCenter;
             Statuslabel.Click += label1_Click;
             // 
-            // FormatComboBox
+            // label1
             // 
-            FormatComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            FormatComboBox.FormattingEnabled = true;
-            FormatComboBox.Location = new Point(46, 58);
-            FormatComboBox.Name = "FormatComboBox";
-            FormatComboBox.Size = new Size(121, 23);
-            FormatComboBox.TabIndex = 2;
-            FormatComboBox.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
+            label1.AutoSize = true;
+            label1.Location = new Point(46, 52);
+            label1.Name = "label1";
+            label1.Size = new Size(43, 15);
+            label1.TabIndex = 3;
+            label1.Text = "圧縮先";
+            label1.Click += label1_Click_1;
             // 
             // RapidZipper
             // 
@@ -103,5 +115,6 @@
         private Label Statuslabel;
         private ProgressBar ProcessingBar;
         private ComboBox FormatComboBox;
+        private Label label1;
     }
 }

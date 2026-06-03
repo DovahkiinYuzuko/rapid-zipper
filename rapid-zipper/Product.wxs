@@ -1,0 +1,56 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="ラピッド圧縮✧展開" Manufacturer="YuzukoUnderson" Version="1.0.0.0" UpgradeCode="a6b856b3-6c8c-4a37-b452-e56bdc39e9f6" Scope="perMachine">
+    
+    <MajorUpgrade DowngradeErrorMessage="既に新しいバージョンがインストールされています。" />
+
+    <!-- アプリケーションのアイコンやMSIのキャビネット埋め込みなどを設定 -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ディレクトリ構成の定義 -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RapidZipper" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ラピッド圧縮✧展開" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- インストールするファイルの定義 -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="3b9e4a38-c67d-4171-8bc6-9464e8e815ad">
+        <!-- シングルファイルパブリッシュされた実行ファイルをインストール -->
+        <File Id="RapidZipperExe" Source="bin\Release\net10.0-windows\win-x64\publish\rapid-zipper.exe" KeyPath="yes" />
+        
+        <!-- スタートメニューへのショートカット -->
+        <Shortcut Id="StartMenuShortcut"
+                  Directory="ApplicationProgramsFolder"
+                  Name="ラピッド圧縮✧展開"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Advertise="no" />
+
+        <!-- デスクトップへのショートカット -->
+        <Shortcut Id="DesktopShortcut"
+                  Directory="DesktopFolder"
+                  Name="ラピッド圧縮✧展開"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Advertise="no" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- スタートメニューフォルダのクリーンアップ用コンポーネント -->
+    <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
+      <Component Id="CleanupShortcuts" Guid="1d1134a6-7d61-46ab-a5a4-22b62ea8360d">
+        <RegistryValue Root="HKCU" Key="Software\YuzukoUnderson\RapidZipper" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- インストール機能の定義 -->
+    <Feature Id="MainFeature">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+  </Package>
+</Wix>

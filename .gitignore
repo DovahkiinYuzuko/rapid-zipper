@@ -1,5 +1,13 @@
+*
+
+!.gitignore
+
+!docs/
+!docs/**
+
+!rapid-zipper/
+!rapid-zipper/**
 .vs/
-[Bb]in/
-[Oo]bj/
-.history/
-*.user
+bin/
+obj/
+

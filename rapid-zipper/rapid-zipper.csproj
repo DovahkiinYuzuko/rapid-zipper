@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -7,12 +7,25 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 7z.Libsの自動コピー（シングルファイルビルド時のバグ持ち）を無効化 -->
+    <NG7zLibsCopyToOutput>false</NG7zLibsCopyToOutput>
+    <NG7zLibsResolvePublish>false</NG7zLibsResolvePublish>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="7z.Libs" Version="26.1.1" />
+    <PackageReference Include="7z.Libs" Version="26.1.1" GeneratePathProperty="true" />
     <PackageReference Include="SharpCompress" Version="0.49.1" />
     <PackageReference Include="Squid-Box.SevenZipSharp" Version="1.6.2.24" />
+  </ItemGroup>
+
+  <!-- 7z.dll を埋め込みリソースとして exe 内に格納する -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(Pkg7z_Libs)\bin\x64\7z.dll">
+      <LogicalName>rapid_zipper.Resources.x64.7z.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(Pkg7z_Libs)\bin\x86\7z.dll">
+      <LogicalName>rapid_zipper.Resources.x86.7z.dll</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
