@@ -15,8 +15,8 @@ if (-not (Test-Path $DestDir)) {
     New-Item -ItemType Directory -Path $DestDir | Out-Null
 }
 
-# 直接 wix build を実行 (-arch x64 を明示することで正常に動作)
-wix build Product.wxs -arch x64 -o "$DestDir\rapid-zipper.msi"
+# 直接 wix build を実行 (-arch x64 を明示し、日本語カルチャーと拡張機能を指定)
+wix build Product.wxs -arch x64 -culture ja-JP -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o "$DestDir\rapid-zipper.msi"
 if ($LASTEXITCODE -ne 0) { throw "wix build failed with exit code $LASTEXITCODE" }
 
 Write-Host "3. Done!" -ForegroundColor Green

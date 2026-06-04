@@ -100,6 +100,7 @@ namespace rapid_zipper
             Name = "RapidZipper";
             Text = "RapidZipper / ラピッド圧縮✧展開";
             Load += Form1_Load;
+            Shown += RapidZipper_Shown;
             DragDrop += RapidZipper_DragDrop;
             DragEnter += RapidZipper_DragEnter;
             DragDropPanel.ResumeLayout(false);

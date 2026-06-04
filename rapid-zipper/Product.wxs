@@ -1,10 +1,14 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="ラピッド圧縮✧展開" Manufacturer="YuzukoUnderson" Version="1.0.0.0" UpgradeCode="a6b856b3-6c8c-4a37-b452-e56bdc39e9f6" Scope="perMachine">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="ラピッド圧縮✧展開" Manufacturer="YuzukoUnderson" Version="1.0.0.0" UpgradeCode="a6b856b3-6c8c-4a37-b452-e56bdc39e9f6" Scope="perMachine" Codepage="65001">
     
     <MajorUpgrade DowngradeErrorMessage="既に新しいバージョンがインストールされています。" />
 
     <!-- アプリケーションのアイコンやMSIのキャビネット埋め込みなどを設定 -->
     <MediaTemplate EmbedCab="yes" />
+
+    <!-- UIの設定 (ウィザードUIの有効化) -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
 
     <!-- ディレクトリ構成の定義 -->
     <StandardDirectory Id="ProgramFiles64Folder">
@@ -37,6 +41,36 @@
                   WorkingDirectory="INSTALLFOLDER"
                   Advertise="no" />
       </Component>
+
+      <!-- 右クリックメニュー（コンテキストメニュー）登録用コンポーネント -->
+      <Component Id="ContextMenuAssociation" Guid="2fdfb8f2-3904-4b5f-a36c-2f96cfb2f707">
+        <!-- ファイルの右クリックメニュー -->
+        <RegistryKey Root="HKMU" Key="Software\Classes\*\shell\RapidZipper">
+          <RegistryValue Value="ラピッド圧縮✧展開で処理 / Process with RapidZipper" Type="string" />
+          <RegistryValue Name="Icon" Value="[INSTALLFOLDER]rapid-zipper.exe,0" Type="string" />
+          <RegistryKey Key="command">
+            <RegistryValue Value="&quot;[INSTALLFOLDER]rapid-zipper.exe&quot; &quot;%1&quot;" Type="string" />
+          </RegistryKey>
+        </RegistryKey>
+        
+        <!-- フォルダの右クリックメニュー -->
+        <RegistryKey Root="HKMU" Key="Software\Classes\Directory\shell\RapidZipper">
+          <RegistryValue Value="ラピッド圧縮✧展開で処理 / Process with RapidZipper" Type="string" />
+          <RegistryValue Name="Icon" Value="[INSTALLFOLDER]rapid-zipper.exe,0" Type="string" />
+          <RegistryKey Key="command">
+            <RegistryValue Value="&quot;[INSTALLFOLDER]rapid-zipper.exe&quot; &quot;%1&quot;" Type="string" />
+          </RegistryKey>
+        </RegistryKey>
+
+        <!-- フォルダ内背景の右クリックメニュー -->
+        <RegistryKey Root="HKMU" Key="Software\Classes\Directory\Background\shell\RapidZipper">
+          <RegistryValue Value="ラピッド圧縮✧展開で処理 / Process with RapidZipper" Type="string" />
+          <RegistryValue Name="Icon" Value="[INSTALLFOLDER]rapid-zipper.exe,0" Type="string" />
+          <RegistryKey Key="command">
+            <RegistryValue Value="&quot;[INSTALLFOLDER]rapid-zipper.exe&quot; &quot;%V&quot;" Type="string" />
+          </RegistryKey>
+        </RegistryKey>
+      </Component>
     </ComponentGroup>
 
     <!-- スタートメニューフォルダのクリーンアップ用コンポーネント -->
@@ -46,6 +80,15 @@
         <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
       </Component>
     </ComponentGroup>
+
+    <!-- インストール完了画面の「起動する」チェックボックスと起動カスタムアクションの設定 -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch RapidZipper / ラピッド圧縮✧展開を起動する" />
+    <Property Id="WixShellExecTarget" Value="[#RapidZipperExe]" />
+    <CustomAction Id="LaunchApplication" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
 
     <!-- インストール機能の定義 -->
     <Feature Id="MainFeature">
