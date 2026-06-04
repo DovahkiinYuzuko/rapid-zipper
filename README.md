@@ -44,9 +44,7 @@
 - WiX Toolset v5 CLI
 
 #### リソース（7z.dll）の自動埋め込み仕様
-本アプリは `7z.dll` をアセンブリ内に埋め込み（ポータブル動作）して、Unicode パスバグを回避するために起動時に特殊文字を含まない一時ディレクトリへ動的展開してロードする仕様になっています。
-
-C# プロジェクトファイル (`rapid-zipper.csproj`) にて、NuGet パッケージの `7z.Libs` からビルド時に自動的に `7z.dll` が抽出されてアセンブリ内に埋め込まれるよう設定されているため、**手動で DLL を配置する作業は一切不要です**。
+本アプリは `7z.dll` をアセンブリ内に自動で埋め込む仕様になっています（ポータブル動作）。Unicode パスバグを回避するため、起動時に特殊文字を含まない一時ディレクトリへ動的展開してロードされます。
 
 #### WiX v5 拡張機能の登録
 インストーラー（MSI）で使用しているセットアップウィザードやユーティリティをビルドするために、事前に WiX CLI に以下の拡張機能パッケージを登録する必要があります。PowerShell 等で以下を実行してください。
@@ -115,9 +113,7 @@ cd rapid-zipper
 - WiX Toolset v5 CLI
 
 #### 7z.dll Automatic Resource Embedding
-This application embeds `7z.dll` inside the assembly for standalone portability and unpacks it dynamically to a safe temp folder on startup to prevent Unicode path bugs.
-
-In the C# project file (`rapid-zipper.csproj`), it is configured to automatically resolve and embed `7z.dll` from the NuGet package `7z.Libs` during the build process, so **no manual placement of DLLs is required**.
+This application automatically embeds `7z.dll` inside the assembly for standalone portability. It unpacks it dynamically to a safe temp folder on startup to prevent Unicode path bugs.
 
 #### Resolving WiX v5 Extensions
 To compile the setup wizard and utilities, register the required extension packages to the WiX CLI:
