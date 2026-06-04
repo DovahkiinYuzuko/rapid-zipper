@@ -1,0 +1,50 @@
+name: Build and Release MSI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build and Publish Release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+
+      - name: Install WiX Toolset
+        run: |
+          dotnet tool install --global wix
+          # WiXツールがインストールされたパスを環境変数PATHに追加
+          echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+
+      - name: Add WiX Extensions
+        run: |
+          # wix.exeにパスが通った新しいシェルセッションで拡張機能を追加
+          wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
+        shell: powershell
+
+      - name: Build MSI Installer
+        run: |
+          ./rapid-zipper/build-installer.ps1
+        shell: powershell
+
+      - name: Create GitHub Release and Upload MSI
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            rapid-zipper/bin/x64/Release/rapid-zipper.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

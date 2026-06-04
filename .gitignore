@@ -10,8 +10,13 @@
 .vs/
 bin/
 obj/
+.wix/
 *.log
 
 !README.md
 !NOTICE.md
 !LICENSE
+
+!.github/
+!.github/**
+
