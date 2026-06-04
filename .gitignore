@@ -11,3 +11,7 @@
 bin/
 obj/
 *.log
+
+!README.md
+!NOTICE.md
+!LICENSE
