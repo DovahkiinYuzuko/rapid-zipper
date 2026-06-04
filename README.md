@@ -1,10 +1,10 @@
 # ラピッド圧縮✧展開 (RapidZipper)
 
-![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white)
-![.NET 10](https://img.shields.io/badge/.NET%2010-512BD4?style=for-the-badge&logo=.net&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
-![WiX Toolset v5](https://img.shields.io/badge/WiX%20Toolset%20v5-FF6F00?style=for-the-badge&logo=windows-terminal&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+![C#](https://img.shields.io/badge/C%23-239120?style=flat-square&logo=c-sharp&logoColor=white)
+![.NET 10](https://img.shields.io/badge/.NET%2010-512BD4?style=flat-square&logo=.net&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
+![WiX Toolset v5](https://img.shields.io/badge/WiX%20Toolset%20v5-FF6F00?style=flat-square&logo=windows-terminal&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
 
 - **English**: A simple, secure, and portable drag-and-drop file compression/extraction utility with Windows Explorer context menu integration.
 - **日本語**: Windows用の、シンプルで安全、かつポータブルなドラッグ＆ドロップおよび右クリックメニューから使える圧縮・展開ユーティリティ。
