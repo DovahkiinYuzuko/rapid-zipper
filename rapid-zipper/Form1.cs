@@ -719,8 +719,8 @@ namespace rapid_zipper
 
         private async Task DecompressArchiveAsync(string archiveFilePath, string destParentDir)
         {
-            const long MaxUncompressedSizeLimit = 10L * 1024 * 1024 * 1024; // 10 GB
-            const int MaxFileCountLimit = 50000; // 50,000 ファイル
+            const long MaxUncompressedSizeLimit = 100L * 1024 * 1024 * 1024; // 100 GB
+            const int MaxFileCountLimit = 500000; // 500,000 ファイル
 
             string archiveFileNameWithoutExt = Path.GetFileNameWithoutExtension(archiveFilePath);
             string destDirBase = Path.Combine(destParentDir, archiveFileNameWithoutExt);

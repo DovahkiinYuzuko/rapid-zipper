@@ -43,10 +43,10 @@
 - .NET 10.0 SDK
 - WiX Toolset v5 CLI
 
-#### リソース（7z.dll）の配置仕様
-本アプリは `7z.dll` をアセンブリ内に埋め込み（ポータブル動作）して、Unicode パスバグを回避するために起動時に特殊文字を含まない一時ディレクトリへ動的展開してロードする仕様になっています。そのため、ビルドの前に以下のパスにそれぞれの DLL を配置する必要があります。
-- `rapid-zipper/Resources/x64/7z.dll`
-- `rapid-zipper/Resources/x86/7z.dll`
+#### リソース（7z.dll）の自動埋め込み仕様
+本アプリは `7z.dll` をアセンブリ内に埋め込み（ポータブル動作）して、Unicode パスバグを回避するために起動時に特殊文字を含まない一時ディレクトリへ動的展開してロードする仕様になっています。
+
+C# プロジェクトファイル (`rapid-zipper.csproj`) にて、NuGet パッケージの `7z.Libs` からビルド時に自動的に `7z.dll` が抽出されてアセンブリ内に埋め込まれるよう設定されているため、**手動で DLL を配置する作業は一切不要です**。
 
 #### WiX v5 拡張機能の登録
 インストーラー（MSI）で使用しているセットアップウィザードやユーティリティをビルドするために、事前に WiX CLI に以下の拡張機能パッケージを登録する必要があります。PowerShell 等で以下を実行してください。
@@ -61,7 +61,7 @@ wix extension add WixToolset.Util.wixext/5.0.2
 cd rapid-zipper
 .\build-installer.ps1
 ```
-ビルドが成功すると、`rapid-zipper/bin/x64/Release/rapid-zipper.msi` に新仕様のウィザード付きインストーラーが生成されます。
+ビルドが成功すると、`rapid-zipper/bin/x64/Release/rapid-zipper.msi` にセットアップウィザード付きのインストーラーが生成されます。
 
 ---
 
@@ -69,7 +69,7 @@ cd rapid-zipper
 - **ロールバック安全策（安全置換）**: 既存フォルダを上書き展開する際、一時フォルダに展開を完了してから安全に元のフォルダと置換し、失敗時は元ファイルを保護する仕組みを導入しています。
 - **重要フォルダ保護**: システムディレクトリやドライブのルートなど、誤削除や誤上書きが危険なパスへの書き込みを検知してブロックします。
 - **Zip Slip 脆弱性対策**: 展開時にファイル名パスを正規化し、解凍先ディレクトリの外へのファイル書き出し（ディレクトリトラバーサル攻撃）をブロックします。
-- **Zip Bomb 脆弱性対策**: 展開前にアーカイブ内のファイルサイズと数を検証し、上限（10GB、5万ファイル）を超える場合は処理を事前に中断してシステムリソースを守ります。
+- **Zip Bomb 脆弱性対策**: 展開前にアーカイブ内のファイルサイズと数を検証し、上限（100GB、50万ファイル）を超える場合は処理を事前に中断してシステムリソースを守ります。
 - **ジャンクション攻撃（VULN-001）防止**: 動的ロードする一時ディレクトリ名に予測不可能なGUIDを組み込むことで、競合状態を狙ったジャンクション攻撃を防いでいます。
 
 ---
@@ -114,10 +114,10 @@ cd rapid-zipper
 - .NET 10.0 SDK
 - WiX Toolset v5 CLI
 
-#### 7z.dll Resource Embedding
-This application embeds `7z.dll` inside the assembly for standalone portability and unpacks it dynamically to a safe temp folder on startup to prevent Unicode path bugs. Ensure the DLL binaries are placed in the following paths before building:
-- `rapid-zipper/Resources/x64/7z.dll`
-- `rapid-zipper/Resources/x86/7z.dll`
+#### 7z.dll Automatic Resource Embedding
+This application embeds `7z.dll` inside the assembly for standalone portability and unpacks it dynamically to a safe temp folder on startup to prevent Unicode path bugs.
+
+In the C# project file (`rapid-zipper.csproj`), it is configured to automatically resolve and embed `7z.dll` from the NuGet package `7z.Libs` during the build process, so **no manual placement of DLLs is required**.
 
 #### Resolving WiX v5 Extensions
 To compile the setup wizard and utilities, register the required extension packages to the WiX CLI:
@@ -140,7 +140,7 @@ The output package will be generated at `rapid-zipper/bin/x64/Release/rapid-zipp
 - **Rollback-Safe Replacement**: When overwriting directories during extraction, files are unpacked to a temporary location first and only swapped upon success. The original directory is protected if any error occurs.
 - **System Directory Guard**: Blocks writes to root drives and system/user profiles (e.g., Windows directory, Desktop, Downloads).
 - **Zip Slip Prevention**: Sanitizes extraction paths using `Path.GetFullPath` to block directory traversal attacks.
-- **Zip Bomb Defense**: Scans archive headers before unpacking to enforce safety limits (10 GB max size, 50,000 max file count).
+- **Zip Bomb Defense**: Scans archive headers before unpacking to enforce safety limits (100 GB max size, 500,000 max file count).
 - **Junction Attack (VULN-001) Prevention**: Employs unpredictable GUID subfolders for dynamic loading to prevent malicious link redirections.
 
 ---
