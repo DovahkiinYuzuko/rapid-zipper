@@ -80,12 +80,27 @@
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `PromptCompressionLevel` (行 507)
+### `PromptCompressionLevel` (行 486)
 - **型**: `private SevenZip.CompressionLevel`
 - **役割**: 7z圧縮を行う直前に、動的な選択ダイアログ（Form）を画面中央に生成・表示し、ラジオボタンによって「低」「普通」「高」のいずれかを選択させる。
 - **戻り値**: 選択された `CompressionLevel`（Low / Normal / High）
 
-### `AddDirectoryToDictionary` (行 567)
+### `ConfigureSevenZipCompressor` (行 530)
+- **型**: `private SevenZipCompressor`
+- **引数**:
+  - `SevenZip.CompressionLevel level`: 設定する圧縮レベル
+- **役割**: 7z圧縮レベルに応じた辞書サイズ（4m/8m/32m）およびスレッド制限のパラメータを `SevenZipCompressor` に対して設定する共通共通ヘルパー。
+- **影響範囲**: `CompressFolderAsync`, `CompressMultipleItemsAsync`
+
+### `IsProtectedDirectory` (行 560)
+- **型**: `private bool`
+- **引数**:
+  - `string path`: 検査対象のフォルダ絶対パス
+- **役割**: 指定されたパスが、重要なシステムフォルダ（デスクトップ、ドキュメント、ユーザープロファイル、Windows等）やドライブのルートディレクトリであるかを検証し、削除・上書きを防止するための保護判定を行う。
+- **戻り値**: 保護対象パスであれば `true`、それ以外なら `false`
+- **影響範囲**: `DecompressArchiveAsync`
+
+### `AddDirectoryToDictionary` (行 616)
 - **型**: `private void`
 - **引数**:
   - `System.Collections.Generic.Dictionary<string, string> dict`: 圧縮対象ファイルの辞書（キー: アーカイブ内相対パス、値: ローカル絶対パス）
@@ -105,19 +120,21 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的（再帰呼び出し）に `IWriter` を用いてアーカイブに追加する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToWriter`（自己再帰）
 
-### `DecompressArchiveAsync` (行 615)
+### `DecompressArchiveAsync` (行 686)
 - **型**: `private async Task`
 - **引数**:
   - `string archiveFilePath`: 展開対象アーカイブファイルの絶対パス
-  - `string destParentDir`: 展開先親フォルダの絶対パス
-- **役割**: 指定されたアーカイブファイルを非同期で展開する。
+- **string destParentDir**: 展開先親フォルダの絶対パス
+- **役割**: 指定されたアーカイブファイルを安全かつ非同期で展開する。
+  - **システムディレクトリ保護**: 展開先が `IsProtectedDirectory` で保護対象と判定された場合は、処理を中断してエラーダイアログを表示する。
+  - **安全リプレース（成功後置換）**: 上書き展開時、既存フォルダの即時削除はせず、まずユニークな一時フォルダ（`_temp_[GUID]`）に解凍する。展開がすべて**正常に成功した後に初めて**、既存フォルダを `_backup_[GUID]` に退避し、一時フォルダを正式名に変更した上でバックアップを非同期（`Task.Run`）で完全削除する。解凍エラー発生時は一時フォルダのみをクリーンアップし、元のフォルダは無傷で保護される（ロールバック安全策）。
+  - **Zip Slip（Path Traversal）防止**: 各エントリの展開先フルパスを `Path.GetFullPath` で正規化し、それが展開先フォルダの配下（`StartsWith`）にあるかを厳密に検証することで、解凍先フォルダ外へのファイルの不正な書き出しをブロックする。
+  - **Zip Bomb（容量・ファイル数）制限**: 解凍前にアーカイブのヘッダー情報を読み取り、解凍後合計サイズ（上限10GB）およびファイル数（上限5万）を事前確認し、超えている場合は例外を投げて処理を中断する。また、展開ループ中も実際に書き出したバイト数を監視し、上限を超えたら即時中断・ロールバックする二重の防御を持つ。
   - **自動最適化ルート分岐による超高速化**:
-    1. **`.zip`形式**: .NET標準の `System.IO.Compression.ZipFile.ExtractToDirectory` を使用。純C#の最高速ルートで一括解凍し、ライブラリの無駄なオーバーヘッドをカット。
-    2. **`.7z`形式**: すでに導入済みのネイティブエンジン `7z.dll` (`SevenZipExtractor`) を使用してC++の本来の最高スピードで一括展開。ソリッド圧縮形式などの展開速度を劇的に（数十分→数秒へ）向上。
-    3. **その他の形式 (TAR, TGZ, RAR等)**: `SharpCompress` の `ReaderFactory.OpenReader`（ストリーム順次リーダー）を使用。ストリームを最初から最後まで1回だけスキャンして順次ディスクに書き出すシーケンシャル展開に統一し、不要なシークを完全排除。
-  - 展開先フォルダが既に存在する場合は、ダイアログを介して「上書き」「別名保存」「キャンセル」を選択させる。
-  - **高速上書き対応 (Move-and-Delete)**: 上書き選択時、既存フォルダの完全削除を待たずに、一瞬でユニークな一時フォルダ名に `Directory.Move` で退避させ、即座に展開処理を開始。退避したフォルダの実際の削除は別スレッドのバックグラウンド (`Task.Run`) で非同期に行うことで、上書き時の待ち時間をほぼゼロに短縮する。
-- **依存関係**: `UpdateStatus`
+    1. **`.zip`形式**: .NET標準の `ZipArchive` を用いて、Zip Slip防止と容量チェックを行いながら展開。
+    2. **`.7z`形式**: `SevenZipExtractor` を使用。事前にパス検証を行った上でネイティブロード。
+    3. **その他の形式**: `SharpCompress` の `IReader` を使用。事前サイズチェックを行った上で、各エントリごとにパス検証を適用してシーケンシャル展開。
+- **依存関係**: `UpdateStatus`, `IsProtectedDirectory`
 - **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
 ### `DecompressMultipleArchivesAsync` (行 748)
@@ -130,9 +147,7 @@
   - 進行状況を 「[1/3] 展開中: ファイル名...」 の形式で表示。
 - **依存関係**: `DecompressArchiveAsync`, `UpdateStatus`
 
-### `panel1_Paint` (行 854) / `label1_Click` (行 858) / `progressBar1_Click` (行 862) / `comboBox1_SelectedIndexChanged` (行 866)
-- **型**: `private void`
-- **役割**: デザイナーから自動登録されたイベントハンドラのプレースホルダー。
+
 
 ---
 

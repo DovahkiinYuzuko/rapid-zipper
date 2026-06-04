@@ -1,4 +1,4 @@
-﻿namespace rapid_zipper
+namespace rapid_zipper
 {
     partial class RapidZipper
     {
@@ -50,7 +50,6 @@
             DragDropPanel.TabIndex = 0;
             DragDropPanel.DragDrop += RapidZipper_DragDrop;
             DragDropPanel.DragEnter += RapidZipper_DragEnter;
-            DragDropPanel.Paint += panel1_Paint;
             // 
             // FormatComboBox
             // 
@@ -60,7 +59,6 @@
             FormatComboBox.Name = "FormatComboBox";
             FormatComboBox.Size = new Size(121, 23);
             FormatComboBox.TabIndex = 2;
-            FormatComboBox.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
             // 
             // ProcessingBar
             // 
@@ -68,7 +66,6 @@
             ProcessingBar.Name = "ProcessingBar";
             ProcessingBar.Size = new Size(218, 24);
             ProcessingBar.TabIndex = 1;
-            ProcessingBar.Click += progressBar1_Click;
             // 
             // Statuslabel
             // 
@@ -80,7 +77,6 @@
             Statuslabel.TabIndex = 0;
             Statuslabel.Text = "フォルダまたはZIPファイルをドロップしてください ";
             Statuslabel.TextAlign = ContentAlignment.MiddleCenter;
-            Statuslabel.Click += label1_Click;
             // 
             // label1
             // 
@@ -90,7 +86,6 @@
             label1.Size = new Size(43, 15);
             label1.TabIndex = 3;
             label1.Text = "圧縮先";
-            label1.Click += label1_Click_1;
             // 
             // RapidZipper
             // 

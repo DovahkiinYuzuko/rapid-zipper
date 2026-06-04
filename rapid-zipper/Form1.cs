@@ -386,31 +386,7 @@ namespace rapid_zipper
                     AddDirectoryToDictionary(filesToCompress, folderPath, folderPath, string.Empty);
 
                     UpdateStatus("7z圧縮中...");
-                    var compressor = new SevenZipCompressor();
-                    compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
-                    compressor.CompressionLevel = sevenZipLevel;
-                    compressor.CompressionMethod = CompressionMethod.Lzma2;
-                    compressor.FastCompression = true;
-
-                    int maxThreads = Math.Max(2, Environment.ProcessorCount / 2);
-                    string dictSize = "8m";
-
-                    if (sevenZipLevel == SevenZip.CompressionLevel.Low)
-                    {
-                        dictSize = "4m";
-                    }
-                    else if (sevenZipLevel == SevenZip.CompressionLevel.High)
-                    {
-                        dictSize = "32m";
-                        maxThreads = Math.Min(4, maxThreads); // 高圧縮時はメモリ制限のためスレッド数を絞る
-                    }
-                    else
-                    {
-                        dictSize = "8m";
-                    }
-
-                    compressor.CustomParameters.Add("d", dictSize);
-                    compressor.CustomParameters.Add("mt", maxThreads.ToString());
+                    var compressor = ConfigureSevenZipCompressor(sevenZipLevel);
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -477,31 +453,7 @@ namespace rapid_zipper
                     }
 
                     UpdateStatus("7z圧縮中...");
-                    var compressor = new SevenZipCompressor();
-                    compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
-                    compressor.CompressionLevel = sevenZipLevel;
-                    compressor.CompressionMethod = CompressionMethod.Lzma2;
-                    compressor.FastCompression = true;
-
-                    int maxThreads = Math.Max(2, Environment.ProcessorCount / 2);
-                    string dictSize = "8m";
-
-                    if (sevenZipLevel == SevenZip.CompressionLevel.Low)
-                    {
-                        dictSize = "4m";
-                    }
-                    else if (sevenZipLevel == SevenZip.CompressionLevel.High)
-                    {
-                        dictSize = "32m";
-                        maxThreads = Math.Min(4, maxThreads); // 高圧縮時はメモリ制限のためスレッド数を絞る
-                    }
-                    else
-                    {
-                        dictSize = "8m";
-                    }
-
-                    compressor.CustomParameters.Add("d", dictSize);
-                    compressor.CustomParameters.Add("mt", maxThreads.ToString());
+                    var compressor = ConfigureSevenZipCompressor(sevenZipLevel);
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
                 else
@@ -575,11 +527,101 @@ namespace rapid_zipper
             }
         }
 
+        private SevenZipCompressor ConfigureSevenZipCompressor(SevenZip.CompressionLevel level)
+        {
+            var compressor = new SevenZipCompressor();
+            compressor.ArchiveFormat = OutArchiveFormat.SevenZip;
+            compressor.CompressionLevel = level;
+            compressor.CompressionMethod = CompressionMethod.Lzma2;
+            compressor.FastCompression = true;
+
+            int maxThreads = Math.Max(2, Environment.ProcessorCount / 2);
+            string dictSize = "8m";
+
+            if (level == SevenZip.CompressionLevel.Low)
+            {
+                dictSize = "4m";
+            }
+            else if (level == SevenZip.CompressionLevel.High)
+            {
+                dictSize = "32m";
+                maxThreads = Math.Min(4, maxThreads); // 高圧縮時はメモリ制限のためスレッド数を絞る
+            }
+            else
+            {
+                dictSize = "8m";
+            }
+
+            compressor.CustomParameters.Add("d", dictSize);
+            compressor.CustomParameters.Add("mt", maxThreads.ToString());
+            return compressor;
+        }
+
+        private bool IsProtectedDirectory(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+
+            try
+            {
+                string fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                // ドライブのルートディレクトリ（例: C:\ など）は保護する
+                string root = Path.GetPathRoot(fullPath) ?? string.Empty;
+                if (fullPath.Equals(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // 保護対象の特別フォルダリスト
+                var protectedFolders = new System.Collections.Generic.List<string>
+                {
+                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), // Documents
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),   // C:\Users\Username
+                    Environment.GetFolderPath(Environment.SpecialFolder.Windows),       // C:\Windows
+                    Environment.GetFolderPath(Environment.SpecialFolder.System),        // C:\Windows\System32
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),  // C:\Program Files
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), // Roaming AppData
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), // Local AppData
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+                };
+
+                foreach (var folder in protectedFolders)
+                {
+                    if (string.IsNullOrEmpty(folder)) continue;
+
+                    string fullFolder = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                    // パスが完全に一致するか、システムフォルダの直上の親フォルダになっていないかをチェック
+                    if (fullPath.Equals(fullFolder, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // パス解析に失敗した場合は安全のため保護対象とする
+                return true;
+            }
+
+            return false;
+        }
+
         private void AddDirectoryToDictionary(System.Collections.Generic.Dictionary<string, string> dict, string sourceRootDir, string currentDir, string archivePathPrefix)
         {
             // ディレクトリ内のファイルを追加
             foreach (var file in Directory.GetFiles(currentDir))
             {
+                // シンボリックリンク/再解析ポイントは除外
+                if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
                 string relativePath = Path.GetRelativePath(sourceRootDir, file);
                 string entryName = string.IsNullOrEmpty(archivePathPrefix)
                     ? relativePath
@@ -593,6 +635,12 @@ namespace rapid_zipper
             // 子ディレクトリを再帰追加
             foreach (var subDir in Directory.GetDirectories(currentDir))
             {
+                // シンボリックリンク/ジャンクション/再解析ポイントは除外
+                if (File.GetAttributes(subDir).HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
                 string dirName = Path.GetFileName(subDir);
                 string newPrefix = string.IsNullOrEmpty(archivePathPrefix) ? dirName : Path.Combine(archivePathPrefix, dirName);
                 AddDirectoryToDictionary(dict, sourceRootDir, subDir, newPrefix);
@@ -604,6 +652,12 @@ namespace rapid_zipper
             // ディレクトリ内のファイルを追加
             foreach (var file in Directory.GetFiles(currentDir))
             {
+                // シンボリックリンク/再解析ポイントは除外
+                if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
                 string relativePath = Path.GetRelativePath(sourceRootDir, file);
                 string entryName = string.IsNullOrEmpty(archivePathPrefix)
                     ? relativePath
@@ -617,6 +671,12 @@ namespace rapid_zipper
             // 子ディレクトリを再帰追加
             foreach (var subDir in Directory.GetDirectories(currentDir))
             {
+                // シンボリックリンク/ジャンクション/再解析ポイントは除外
+                if (File.GetAttributes(subDir).HasFlag(FileAttributes.ReparsePoint))
+                {
+                    continue;
+                }
+
                 string dirName = Path.GetFileName(subDir);
                 string newPrefix = string.IsNullOrEmpty(archivePathPrefix) ? dirName : Path.Combine(archivePathPrefix, dirName);
                 AddDirectoryToWriter(writer, sourceRootDir, subDir, newPrefix);
@@ -625,11 +685,45 @@ namespace rapid_zipper
 
         private async Task DecompressArchiveAsync(string archiveFilePath, string destParentDir)
         {
+            const long MaxUncompressedSizeLimit = 10L * 1024 * 1024 * 1024; // 10 GB
+            const int MaxFileCountLimit = 50000; // 50,000 ファイル
+
             string archiveFileNameWithoutExt = Path.GetFileNameWithoutExtension(archiveFilePath);
             string destDirBase = Path.Combine(destParentDir, archiveFileNameWithoutExt);
             string destDir = destDirBase;
 
-            // 重複チェック
+            // 1. システムディレクトリの保護チェック
+            if (IsProtectedDirectory(destDir))
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() =>
+                    {
+                        MessageBox.Show(
+                            $"指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n対象: {destDir}",
+                            "セキュリティ警告",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }));
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n対象: {destDir}",
+                        "セキュリティ警告",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                }
+                return;
+            }
+
+            bool isOverwriting = false;
+            string realDestDir = destDir;
+            string extractionTargetDir = destDir;
+
+            // 2. 重複チェック
             if (Directory.Exists(destDir))
             {
                 DialogResult result = DialogResult.None;
@@ -639,7 +733,7 @@ namespace rapid_zipper
                     Invoke(new Action(() =>
                     {
                         result = MessageBox.Show(
-                            $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
+                            $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを上書き (展開成功後に安全に置換)\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
                             "展開先の重複",
                             MessageBoxButtons.YesNoCancel,
                             MessageBoxIcon.Question
@@ -649,7 +743,7 @@ namespace rapid_zipper
                 else
                 {
                     result = MessageBox.Show(
-                        $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを削除して上書き\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
+                        $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを上書き (展開成功後に安全に置換)\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
                         "展開先の重複",
                         MessageBoxButtons.YesNoCancel,
                         MessageBoxIcon.Question
@@ -658,34 +752,9 @@ namespace rapid_zipper
 
                 if (result == DialogResult.Yes)
                 {
-                    UpdateStatus("既存のフォルダを退避中...");
-                    string tempGarbageDir = destDir + "_to_delete_" + Guid.NewGuid().ToString("N");
-
-                    try
-                    {
-                        Directory.Move(destDir, tempGarbageDir);
-
-                        // バックグラウンド削除
-                        _ = Task.Run(() =>
-                        {
-                            try
-                            {
-                                Directory.Delete(tempGarbageDir, true);
-                            }
-                            catch
-                            {
-                                // 握りつぶす
-                            }
-                        });
-                    }
-                    catch (Exception)
-                    {
-                        UpdateStatus("退避に失敗したため、直接削除中...");
-                        await Task.Run(() =>
-                        {
-                            Directory.Delete(destDir, true);
-                        });
-                    }
+                    isOverwriting = true;
+                    // 一時フォルダに展開して、成功後に置換する (ロールバック安全策)
+                    extractionTargetDir = destDir + "_temp_" + Guid.NewGuid().ToString("N");
                 }
                 else if (result == DialogResult.No)
                 {
@@ -695,6 +764,8 @@ namespace rapid_zipper
                         destDir = $"{destDirBase} ({index})";
                         index++;
                     }
+                    realDestDir = destDir;
+                    extractionTargetDir = destDir;
                 }
                 else
                 {
@@ -705,55 +776,237 @@ namespace rapid_zipper
 
             UpdateStatus("展開処理を準備中...");
 
-            // まず展開先フォルダを作成
-            Directory.CreateDirectory(destDir);
-
-            string ext = Path.GetExtension(archiveFilePath).ToLower();
-
-            await Task.Run(() =>
+            try
             {
-                if (ext == ".zip")
-                {
-                    // 1. ZIP形式: .NET標準クラスを使用して高速一括展開
-                    System.IO.Compression.ZipFile.ExtractToDirectory(archiveFilePath, destDir, overwriteFiles: true);
-                }
-                else if (ext == ".7z")
-                {
-                    // 2. 7Z形式: 7z.dll (SevenZipExtractor) を使用してネイティブ超高速展開
-                    using (var extractor = new SevenZip.SevenZipExtractor(archiveFilePath))
-                    {
-                        extractor.ExtractArchive(destDir);
-                    }
-                }
-                else
-                {
-                    // 3. その他 (TAR, TGZ, RAR等): SharpCompress の IReader を使って順次ストリーム読み込み (O(N^2)再シーク回避)
-                    int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
-                    var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
-                    var options = new ReaderOptions
-                    {
-                        ArchiveEncoding = new ArchiveEncoding { Default = encoding }
-                    };
+                // まず展開先フォルダを作成
+                Directory.CreateDirectory(extractionTargetDir);
 
-                    using (Stream stream = File.OpenRead(archiveFilePath))
+                string ext = Path.GetExtension(archiveFilePath).ToLower();
+
+                await Task.Run(() =>
+                {
+                    if (ext == ".zip")
                     {
-                        using (var reader = ReaderFactory.OpenReader(stream, options))
+                        // 1. ZIP形式: ZipArchive を開いて Zip Slip 防止と容量チェックを行いながら展開
+                        using (var archive = System.IO.Compression.ZipFile.OpenRead(archiveFilePath))
                         {
-                            while (reader.MoveToNextEntry())
+                            long totalSizeEstimate = 0;
+                            int fileCountEstimate = 0;
+                            foreach (var entry in archive.Entries)
                             {
-                                if (!reader.Entry.IsDirectory)
+                                if (!string.IsNullOrEmpty(entry.Name))
                                 {
-                                    reader.WriteEntryToDirectory(destDir, new ExtractionOptions
-                                    {
-                                        ExtractFullPath = true,
-                                        Overwrite = true
-                                    });
+                                    fileCountEstimate++;
+                                    totalSizeEstimate += entry.Length;
+                                }
+                            }
+
+                            if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
+                            {
+                                throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                            }
+
+                            long currentTotalWritten = 0;
+                            foreach (var entry in archive.Entries)
+                            {
+                                if (string.IsNullOrEmpty(entry.Name)) continue;
+
+                                // Path Traversal (Zip Slip) 防止のパス正規化検証
+                                string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, entry.FullName));
+                                string targetDirFullPath = Path.GetFullPath(extractionTargetDir) + Path.DirectorySeparatorChar;
+
+                                if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"セキュリティ警告: Zip Slip パスを検知したためスキップしました: {entry.FullName}");
+                                    continue;
+                                }
+
+                                string? parentDir = Path.GetDirectoryName(entryFullPath);
+                                if (parentDir != null && !Directory.Exists(parentDir))
+                                {
+                                    Directory.CreateDirectory(parentDir);
+                                }
+
+                                entry.ExtractToFile(entryFullPath, overwrite: true);
+                                currentTotalWritten += entry.Length;
+
+                                if (currentTotalWritten > MaxUncompressedSizeLimit)
+                                {
+                                    throw new InvalidOperationException("解凍サイズ制限（10GB）を超えました。");
                                 }
                             }
                         }
                     }
+                    else if (ext == ".7z")
+                    {
+                        // 2. 7Z形式: 7z.dll (SevenZipExtractor)
+                        using (var extractor = new SevenZip.SevenZipExtractor(archiveFilePath))
+                        {
+                            long totalSizeEstimate = 0;
+                            int fileCountEstimate = 0;
+                            foreach (var fileInfo in extractor.ArchiveFileData)
+                            {
+                                if (!fileInfo.IsDirectory)
+                                {
+                                    fileCountEstimate++;
+                                    totalSizeEstimate += (long)fileInfo.Size;
+                                }
+                            }
+
+                            if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
+                            {
+                                throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                            }
+
+                            // 7z の Zip Slip パス検証
+                            string targetDirFullPath = Path.GetFullPath(extractionTargetDir) + Path.DirectorySeparatorChar;
+                            foreach (var fileInfo in extractor.ArchiveFileData)
+                            {
+                                if (string.IsNullOrEmpty(fileInfo.FileName)) continue;
+                                string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, fileInfo.FileName));
+                                if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    throw new InvalidOperationException($"セキュリティ警告: Zip Slip パスが検出されました: {fileInfo.FileName}");
+                                }
+                            }
+
+                            extractor.ExtractArchive(extractionTargetDir);
+                        }
+                    }
+                    else
+                    {
+                        // 3. その他 (TAR, TGZ, RAR等): SharpCompress の IReader
+                        int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+                        var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
+                        var options = new ReaderOptions
+                        {
+                            ArchiveEncoding = new ArchiveEncoding { Default = encoding }
+                        };
+
+                        using (Stream stream = File.OpenRead(archiveFilePath))
+                        {
+                            using (var reader = ReaderFactory.OpenReader(stream, options))
+                            {
+                                // 事前チェック
+                                using (Stream checkStream = File.OpenRead(archiveFilePath))
+                                using (var checkArchive = SharpCompress.Archives.ArchiveFactory.OpenArchive(checkStream))
+                                {
+                                    long totalSizeEstimate = 0;
+                                    int fileCountEstimate = 0;
+                                    foreach (var entry in checkArchive.Entries)
+                                    {
+                                        if (!entry.IsDirectory)
+                                        {
+                                            fileCountEstimate++;
+                                            totalSizeEstimate += entry.Size;
+                                        }
+                                    }
+
+                                    if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
+                                    {
+                                        throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                                    }
+                                }
+
+                                long currentTotalWritten = 0;
+                                while (reader.MoveToNextEntry())
+                                {
+                                    if (reader.Entry.IsDirectory) continue;
+
+                                    // Path Traversal (Zip Slip) 防止のパス正規化検証
+                                    string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, reader.Entry.Key ?? string.Empty));
+                                    string targetDirFullPath = Path.GetFullPath(extractionTargetDir) + Path.DirectorySeparatorChar;
+
+                                    if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"セキュリティ警告: Zip Slip パスを検知したためスキップしました: {reader.Entry.Key}");
+                                        continue;
+                                    }
+
+                                    reader.WriteEntryToDirectory(extractionTargetDir, new ExtractionOptions
+                                    {
+                                        ExtractFullPath = true,
+                                        Overwrite = true
+                                    });
+
+                                    currentTotalWritten += reader.Entry.Size;
+                                    if (currentTotalWritten > MaxUncompressedSizeLimit)
+                                    {
+                                        throw new InvalidOperationException("解凍サイズ制限（10GB）を超えました。");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 3. 正常に展開完了した後の安全なリプレース（成功後置換）
+                if (isOverwriting)
+                {
+                    UpdateStatus("既存のフォルダを置換中...");
+                    string tempBackupDir = realDestDir + "_backup_" + Guid.NewGuid().ToString("N");
+                    
+                    try
+                    {
+                        // 既存のフォルダをバックアップ名にリネーム
+                        Directory.Move(realDestDir, tempBackupDir);
+                        // 一時フォルダを正式名にリネーム
+                        Directory.Move(extractionTargetDir, realDestDir);
+
+                        // 古いフォルダを非同期で完全削除
+                        _ = Task.Run(() =>
+                        {
+                            try
+                            {
+                                Directory.Delete(tempBackupDir, true);
+                            }
+                            catch
+                            {
+                                // 握りつぶす
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdateStatus("置換に失敗しました。一時ファイルをクリーンアップ中...");
+                        try { Directory.Delete(extractionTargetDir, true); } catch { }
+                        throw new IOException($"既存フォルダの置換に失敗しました: {ex.Message}");
+                    }
                 }
-            });
+
+                UpdateStatus("展開が完了しました。");
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"展開に失敗しました: {ex.Message}");
+                // 途中で失敗した一時ファイルをクリーンアップ
+                if (isOverwriting && Directory.Exists(extractionTargetDir))
+                {
+                    try { Directory.Delete(extractionTargetDir, true); } catch { }
+                }
+
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() =>
+                    {
+                        MessageBox.Show(
+                            $"展開中にエラーが発生しました。\n\n詳細: {ex.Message}",
+                            "展開エラー",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }));
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"展開中にエラーが発生しました。\n\n詳細: {ex.Message}",
+                        "展開エラー",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                }
+            }
         }
 
         private async Task DecompressMultipleArchivesAsync(string[] archiveFilePaths)
@@ -860,27 +1113,6 @@ namespace rapid_zipper
                     UpdateStatus($"フォルダを開く際にエラーが発生しました: {ex.Message}");
                 }
             }
-        }
-
-        private void panel1_Paint(object sender, PaintEventArgs e)
-        {
-        }
-
-        private void label1_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void progressBar1_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {
-        }
-
-        private void label1_Click_1(object sender, EventArgs e)
-        {
-
         }
     }
 }
