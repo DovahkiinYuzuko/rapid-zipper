@@ -46,7 +46,7 @@ namespace rapid_zipper
             DragDropPanel.Dock = DockStyle.Fill;
             DragDropPanel.Location = new Point(0, 0);
             DragDropPanel.Name = "DragDropPanel";
-            DragDropPanel.Size = new Size(302, 147);
+            DragDropPanel.Size = new Size(360, 150);
             DragDropPanel.TabIndex = 0;
             DragDropPanel.DragDrop += RapidZipper_DragDrop;
             DragDropPanel.DragEnter += RapidZipper_DragEnter;
@@ -55,47 +55,50 @@ namespace rapid_zipper
             // 
             FormatComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             FormatComboBox.FormattingEnabled = true;
-            FormatComboBox.Location = new Point(95, 49);
+            FormatComboBox.Location = new Point(150, 49);
             FormatComboBox.Name = "FormatComboBox";
-            FormatComboBox.Size = new Size(121, 23);
+            FormatComboBox.Size = new Size(160, 23);
             FormatComboBox.TabIndex = 2;
             // 
             // ProcessingBar
             // 
-            ProcessingBar.Location = new Point(46, 111);
+            ProcessingBar.Location = new Point(30, 111);
             ProcessingBar.Name = "ProcessingBar";
-            ProcessingBar.Size = new Size(218, 24);
+            ProcessingBar.Size = new Size(300, 24);
             ProcessingBar.TabIndex = 1;
             // 
             // Statuslabel
             // 
             Statuslabel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            Statuslabel.AutoSize = true;
-            Statuslabel.Location = new Point(46, 9);
+            Statuslabel.AutoSize = false;
+            Statuslabel.Location = new Point(10, 9);
             Statuslabel.Name = "Statuslabel";
-            Statuslabel.Size = new Size(218, 15);
+            Statuslabel.Size = new Size(340, 32);
             Statuslabel.TabIndex = 0;
-            Statuslabel.Text = "フォルダまたはZIPファイルをドロップしてください ";
+            Statuslabel.Text = "Drop files or folders here\r\nフォルダまたはアーカイブをドロップしてください";
             Statuslabel.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // label1
             // 
-            label1.AutoSize = true;
-            label1.Location = new Point(46, 52);
+            label1.AutoSize = false;
+            label1.Location = new Point(30, 50);
             label1.Name = "label1";
-            label1.Size = new Size(43, 15);
+            label1.Size = new Size(110, 20);
             label1.TabIndex = 3;
-            label1.Text = "圧縮先";
+            label1.Text = "Format / 圧縮先";
+            label1.TextAlign = ContentAlignment.MiddleRight;
             // 
             // RapidZipper
             // 
             AllowDrop = true;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(302, 147);
+            ClientSize = new Size(360, 150);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
             Controls.Add(DragDropPanel);
             Name = "RapidZipper";
-            Text = "RapidZipper";
+            Text = "RapidZipper / ラピッド圧縮✧展開";
             Load += Form1_Load;
             DragDrop += RapidZipper_DragDrop;
             DragEnter += RapidZipper_DragEnter;

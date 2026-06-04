@@ -150,7 +150,7 @@ namespace rapid_zipper
                             {
                                 using (var dialog = new FolderBrowserDialog())
                                 {
-                                    dialog.Description = "解凍先フォルダを選択してください";
+                                    dialog.Description = "Select destination folder / 解凍先フォルダを選択してください";
                                     dialog.InitialDirectory = firstFileDir;
                                     dialog.SelectedPath = firstFileDir;
                                     if (dialog.ShowDialog() == DialogResult.OK)
@@ -164,7 +164,7 @@ namespace rapid_zipper
                         {
                             using (var dialog = new FolderBrowserDialog())
                             {
-                                dialog.Description = "解凍先フォルダを選択してください";
+                                dialog.Description = "Select destination folder / 解凍先フォルダを選択してください";
                                 dialog.InitialDirectory = firstFileDir;
                                 dialog.SelectedPath = firstFileDir;
                                 if (dialog.ShowDialog() == DialogResult.OK)
@@ -179,8 +179,8 @@ namespace rapid_zipper
                             await DecompressArchiveAsync(archiveFiles[0], selectedParentDir);
 
                             DialogResult openFolderResult = MessageBox.Show(
-                                "展開が完了しました。フォルダを開きますか？",
-                                "完了",
+                                "Extraction completed. Open the folder?\r\n展開が完了しました。フォルダを開きますか？",
+                                "Completed / 完了",
                                 MessageBoxButtons.YesNo,
                                 MessageBoxIcon.Question
                             );
@@ -198,7 +198,7 @@ namespace rapid_zipper
                         }
                         else
                         {
-                            UpdateStatus("展開処理をキャンセルしました。");
+                            UpdateStatus("Extraction cancelled. / 展開処理をキャンセルしました。");
                         }
                     }
                     else
@@ -248,10 +248,10 @@ namespace rapid_zipper
                         {
                             using (var sfd = new SaveFileDialog())
                             {
-                                sfd.Filter = $"圧縮ファイル (*{ext})|*{ext}";
+                                sfd.Filter = $"Compressed File (*{ext})|*{ext}";
                                 sfd.InitialDirectory = defaultDir;
                                 sfd.FileName = defaultZipName;
-                                sfd.Title = "圧縮ファイルの保存先を選択してください";
+                                sfd.Title = "Select save destination for compressed file / 圧縮ファイルの保存先を選択してください";
 
                                 if (sfd.ShowDialog() == DialogResult.OK)
                                 {
@@ -264,10 +264,10 @@ namespace rapid_zipper
                     {
                         using (var sfd = new SaveFileDialog())
                         {
-                            sfd.Filter = $"圧縮ファイル (*{ext})|*{ext}";
+                            sfd.Filter = $"Compressed File (*{ext})|*{ext}";
                             sfd.InitialDirectory = defaultDir;
                             sfd.FileName = defaultZipName;
-                            sfd.Title = "圧縮ファイルの保存先を選択してください";
+                            sfd.Title = "Select save destination for compressed file / 圧縮ファイルの保存先を選択してください";
 
                             if (sfd.ShowDialog() == DialogResult.OK)
                             {
@@ -294,13 +294,13 @@ namespace rapid_zipper
                     }
                     else
                     {
-                        UpdateStatus("圧縮処理をキャンセルしました。");
+                        UpdateStatus("Compression cancelled. / 圧縮処理をキャンセルしました。");
                     }
                 }
             }
             catch (Exception ex)
             {
-                UpdateStatus($"エラーが発生しました: {ex.Message}");
+                UpdateStatus($"Error occurred: {ex.Message} / エラーが発生しました: {ex.Message}");
             }
             finally
             {
@@ -366,7 +366,7 @@ namespace rapid_zipper
             }
 
             string destZipPath = Path.Combine(parentDir, folderName + ext);
-            UpdateStatus($"圧縮中: {folderName}{ext}");
+            UpdateStatus($"Compressing: {folderName}{ext} / 圧縮中");
 
             await Task.Run(() =>
             {
@@ -381,11 +381,11 @@ namespace rapid_zipper
                 }
                 else if (format == "7Z")
                 {
-                    UpdateStatus("フォルダ内をスキャン中...");
+                    UpdateStatus("Scanning folder... / フォルダ内をスキャン中...");
                     var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
                     AddDirectoryToDictionary(filesToCompress, folderPath, folderPath, string.Empty);
 
-                    UpdateStatus("7z圧縮中...");
+                    UpdateStatus("7z compressing... / 7z圧縮中...");
                     var compressor = ConfigureSevenZipCompressor(sevenZipLevel);
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
@@ -407,12 +407,12 @@ namespace rapid_zipper
                 }
             });
 
-            UpdateStatus("圧縮が完了しました。");
+            UpdateStatus("Compression completed. / 圧縮が完了しました。");
         }
 
         private async Task CompressMultipleItemsAsync(string[] sourcePaths, string destZipPath, string format, SevenZip.CompressionLevel sevenZipLevel = SevenZip.CompressionLevel.Normal)
         {
-            UpdateStatus("圧縮処理を準備中...");
+            UpdateStatus("Preparing compression... / 圧縮処理を準備中...");
 
             ArchiveType archiveType = ArchiveType.Zip;
             CompressionType compressionType = CompressionType.Deflate;
@@ -437,7 +437,7 @@ namespace rapid_zipper
 
                 if (format == "7Z")
                 {
-                    UpdateStatus("ファイル・フォルダをスキャン中...");
+                    UpdateStatus("Scanning files/folders... / ファイル・フォルダをスキャン中...");
                     var filesToCompress = new System.Collections.Generic.Dictionary<string, string>();
                     foreach (var path in sourcePaths)
                     {
@@ -452,7 +452,7 @@ namespace rapid_zipper
                         }
                     }
 
-                    UpdateStatus("7z圧縮中...");
+                    UpdateStatus("7z compressing... / 7z圧縮中...");
                     var compressor = ConfigureSevenZipCompressor(sevenZipLevel);
                     compressor.CompressFileDictionary(filesToCompress, destZipPath);
                 }
@@ -471,7 +471,7 @@ namespace rapid_zipper
                                 else if (File.Exists(path))
                                 {
                                     string entryName = Path.GetFileName(path);
-                                    UpdateStatus($"圧縮中: {entryName}");
+                                    UpdateStatus($"Compressing: {entryName} / 圧縮中: {entryName}");
                                     writer.Write(entryName, path);
                                 }
                             }
@@ -480,7 +480,7 @@ namespace rapid_zipper
                 }
             });
 
-            UpdateStatus("圧縮が完了しました。");
+            UpdateStatus("Compression completed. / 圧縮が完了しました。");
         }
 
         private SevenZip.CompressionLevel PromptCompressionLevel()
@@ -488,8 +488,8 @@ namespace rapid_zipper
             using (var prompt = new Form())
             {
                 prompt.Width = 400;
-                prompt.Height = 210;
-                prompt.Text = "7z 圧縮レベルの選択";
+                prompt.Height = 230;
+                prompt.Text = "Select 7z Compression Level / 7z 圧縮レベルの選択";
                 prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
                 prompt.StartPosition = FormStartPosition.CenterParent;
                 prompt.MaximizeBox = false;
@@ -500,15 +500,15 @@ namespace rapid_zipper
                     Left = 20,
                     Top = 15,
                     Width = 360,
-                    Height = 35,
-                    Text = "7zの圧縮レベルを選択してください\n(高レベルほど高圧縮ですが、メモリと時間がかかります)"
+                    Height = 50,
+                    Text = "Select 7z compression level / 7zの圧縮レベルを選択してください\r\n(Higher level is more compressed but takes more memory and time)"
                 };
 
-                var radioLow = new RadioButton() { Left = 30, Top = 55, Width = 340, Text = "低 (高速・省メモリ - 辞書4MB)", Checked = false };
-                var radioNormal = new RadioButton() { Left = 30, Top = 80, Width = 340, Text = "普通 (バランス - 辞書8MB)", Checked = true };
-                var radioHigh = new RadioButton() { Left = 30, Top = 105, Width = 340, Text = "高 (高圧縮 - 辞書32MB - 最大4スレッド)", Checked = false };
+                var radioLow = new RadioButton() { Left = 30, Top = 70, Width = 340, Text = "Low / 低 (Fast / High Speed - Dictionary 4MB)", Checked = false };
+                var radioNormal = new RadioButton() { Left = 30, Top = 95, Width = 340, Text = "Normal / 普通 (Balanced - Dictionary 8MB)", Checked = true };
+                var radioHigh = new RadioButton() { Left = 30, Top = 120, Width = 340, Text = "High / 高 (High Compression - Dictionary 32MB)", Checked = false };
 
-                var buttonOk = new Button() { Text = "決定", Left = 280, Top = 135, Width = 80, DialogResult = DialogResult.OK };
+                var buttonOk = new Button() { Text = "OK / 決定", Left = 280, Top = 155, Width = 80, DialogResult = DialogResult.OK };
 
                 prompt.Controls.Add(label);
                 prompt.Controls.Add(radioLow);
@@ -700,8 +700,8 @@ namespace rapid_zipper
                     Invoke(new Action(() =>
                     {
                         MessageBox.Show(
-                            $"指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n対象: {destDir}",
-                            "セキュリティ警告",
+                            $"The specified extraction folder is protected and cannot be overwritten or deleted.\n指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n\nPath: {destDir}",
+                            "Security Warning / セキュリティ警告",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error
                         );
@@ -710,8 +710,8 @@ namespace rapid_zipper
                 else
                 {
                     MessageBox.Show(
-                        $"指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n対象: {destDir}",
-                        "セキュリティ警告",
+                        $"The specified extraction folder is protected and cannot be overwritten or deleted.\n指定された展開先フォルダはシステム保護対象のため、上書き・削除できません。\n\nPath: {destDir}",
+                        "Security Warning / セキュリティ警告",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error
                     );
@@ -733,8 +733,8 @@ namespace rapid_zipper
                     Invoke(new Action(() =>
                     {
                         result = MessageBox.Show(
-                            $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを上書き (展開成功後に安全に置換)\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
-                            "展開先の重複",
+                            $"The destination folder already exists. Overwrite it?\n展開先フォルダが既に存在します。上書きしますか？\n\nTarget: {archiveFileNameWithoutExt}\n\n[Yes]: Overwrite existing (safe replacement after success) / はい: 上書き\n[No]: Save as a different name / いいえ: 別の名前で保存\n[Cancel]: Cancel process / キャンセル: 中止",
+                            "Destination Duplicate / 展開先の重複",
                             MessageBoxButtons.YesNoCancel,
                             MessageBoxIcon.Question
                         );
@@ -743,8 +743,8 @@ namespace rapid_zipper
                 else
                 {
                     result = MessageBox.Show(
-                        $"展開先フォルダが既に存在します。上書きしますか？\n\n対象: {archiveFileNameWithoutExt}\n\n「はい」：既存のフォルダを上書き (展開成功後に安全に置換)\n「いいえ」：別の名前で保存\n「キャンセル」：処理を中止",
-                        "展開先の重複",
+                        $"The destination folder already exists. Overwrite it?\n展開先フォルダが既に存在します。上書きしますか？\n\nTarget: {archiveFileNameWithoutExt}\n\n[Yes]: Overwrite existing (safe replacement after success) / はい: 上書き\n[No]: Save as a different name / いいえ: 別の名前で保存\n[Cancel]: Cancel process / キャンセル: 中止",
+                        "Destination Duplicate / 展開先の重複",
                         MessageBoxButtons.YesNoCancel,
                         MessageBoxIcon.Question
                     );
@@ -769,12 +769,12 @@ namespace rapid_zipper
                 }
                 else
                 {
-                    UpdateStatus("展開処理をキャンセルしました。");
+                    UpdateStatus("Extraction cancelled. / 展開処理をキャンセルしました。");
                     return;
                 }
             }
 
-            UpdateStatus("展開処理を準備中...");
+            UpdateStatus("Preparing extraction... / 展開処理を準備中...");
 
             try
             {
@@ -803,7 +803,7 @@ namespace rapid_zipper
 
                             if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
                             {
-                                throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                                throw new InvalidOperationException($"Extraction limits exceeded. / 展開制限を超えています。\nEstimated Size: {totalSizeEstimate / 1024 / 1024}MB (Limit: {MaxUncompressedSizeLimit / 1024 / 1024}MB) / 解凍後推定サイズ\nFile Count: {fileCountEstimate} (Limit: {MaxFileCountLimit}) / ファイル数");
                             }
 
                             long currentTotalWritten = 0;
@@ -817,7 +817,7 @@ namespace rapid_zipper
 
                                 if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"セキュリティ警告: Zip Slip パスを検知したためスキップしました: {entry.FullName}");
+                                    System.Diagnostics.Debug.WriteLine($"Security Warning: Zip Slip path detected and skipped: {entry.FullName} / セキュリティ警告");
                                     continue;
                                 }
 
@@ -832,7 +832,7 @@ namespace rapid_zipper
 
                                 if (currentTotalWritten > MaxUncompressedSizeLimit)
                                 {
-                                    throw new InvalidOperationException("解凍サイズ制限（10GB）を超えました。");
+                                    throw new InvalidOperationException("Extraction size limit (10GB) exceeded. / 解凍サイズ制限（10GB）を超えました。");
                                 }
                             }
                         }
@@ -855,7 +855,7 @@ namespace rapid_zipper
 
                             if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
                             {
-                                throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                                throw new InvalidOperationException($"Extraction limits exceeded. / 展開制限を超えています。\nEstimated Size: {totalSizeEstimate / 1024 / 1024}MB (Limit: {MaxUncompressedSizeLimit / 1024 / 1024}MB) / 解凍後推定サイズ\nFile Count: {fileCountEstimate} (Limit: {MaxFileCountLimit}) / ファイル数");
                             }
 
                             // 7z の Zip Slip パス検証
@@ -866,7 +866,7 @@ namespace rapid_zipper
                                 string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, fileInfo.FileName));
                                 if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    throw new InvalidOperationException($"セキュリティ警告: Zip Slip パスが検出されました: {fileInfo.FileName}");
+                                    throw new InvalidOperationException($"Security Warning: Zip Slip path detected: {fileInfo.FileName} / セキュリティ警告");
                                 }
                             }
 
@@ -904,7 +904,7 @@ namespace rapid_zipper
 
                                     if (fileCountEstimate > MaxFileCountLimit || totalSizeEstimate > MaxUncompressedSizeLimit)
                                     {
-                                        throw new InvalidOperationException($"展開制限を超えています。\n解凍後推定サイズ: {totalSizeEstimate / 1024 / 1024}MB (上限: {MaxUncompressedSizeLimit / 1024 / 1024}MB)\nファイル数: {fileCountEstimate} (上限: {MaxFileCountLimit})");
+                                        throw new InvalidOperationException($"Extraction limits exceeded. / 展開制限を超えています。\nEstimated Size: {totalSizeEstimate / 1024 / 1024}MB (Limit: {MaxUncompressedSizeLimit / 1024 / 1024}MB) / 解凍後推定サイズ\nFile Count: {fileCountEstimate} (Limit: {MaxFileCountLimit}) / ファイル数");
                                     }
                                 }
 
@@ -919,7 +919,7 @@ namespace rapid_zipper
 
                                     if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"セキュリティ警告: Zip Slip パスを検知したためスキップしました: {reader.Entry.Key}");
+                                        System.Diagnostics.Debug.WriteLine($"Security Warning: Zip Slip path detected and skipped: {reader.Entry.Key} / セキュリティ警告");
                                         continue;
                                     }
 
@@ -932,7 +932,7 @@ namespace rapid_zipper
                                     currentTotalWritten += reader.Entry.Size;
                                     if (currentTotalWritten > MaxUncompressedSizeLimit)
                                     {
-                                        throw new InvalidOperationException("解凍サイズ制限（10GB）を超えました。");
+                                        throw new InvalidOperationException("Extraction size limit (10GB) exceeded. / 解凍サイズ制限（10GB）を超えました。");
                                     }
                                 }
                             }
@@ -943,7 +943,7 @@ namespace rapid_zipper
                 // 3. 正常に展開完了した後の安全なリプレース（成功後置換）
                 if (isOverwriting)
                 {
-                    UpdateStatus("既存のフォルダを置換中...");
+                    UpdateStatus("Replacing existing folder... / 既存のフォルダを置換中...");
                     string tempBackupDir = realDestDir + "_backup_" + Guid.NewGuid().ToString("N");
                     
                     try
@@ -968,17 +968,17 @@ namespace rapid_zipper
                     }
                     catch (Exception ex)
                     {
-                        UpdateStatus("置換に失敗しました。一時ファイルをクリーンアップ中...");
+                        UpdateStatus("Replacement failed. Cleaning up temp files... / 置換に失敗しました。一時ファイルをクリーンアップ中...");
                         try { Directory.Delete(extractionTargetDir, true); } catch { }
-                        throw new IOException($"既存フォルダの置換に失敗しました: {ex.Message}");
+                        throw new IOException($"Failed to replace existing folder: {ex.Message} / 既存フォルダの置換に失敗しました: {ex.Message}");
                     }
                 }
 
-                UpdateStatus("展開が完了しました。");
+                UpdateStatus("Extraction completed. / 展開が完了しました。");
             }
             catch (Exception ex)
             {
-                UpdateStatus($"展開に失敗しました: {ex.Message}");
+                UpdateStatus($"Extraction failed: {ex.Message} / 展開に失敗しました: {ex.Message}");
                 // 途中で失敗した一時ファイルをクリーンアップ
                 if (isOverwriting && Directory.Exists(extractionTargetDir))
                 {
@@ -990,8 +990,8 @@ namespace rapid_zipper
                     Invoke(new Action(() =>
                     {
                         MessageBox.Show(
-                            $"展開中にエラーが発生しました。\n\n詳細: {ex.Message}",
-                            "展開エラー",
+                            $"An error occurred during extraction. / 展開中にエラーが発生しました。\n\nDetail: {ex.Message} / 詳細",
+                            "Extraction Error / 展開エラー",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error
                         );
@@ -1000,8 +1000,8 @@ namespace rapid_zipper
                 else
                 {
                     MessageBox.Show(
-                        $"展開中にエラーが発生しました。\n\n詳細: {ex.Message}",
-                        "展開エラー",
+                        $"An error occurred during extraction. / 展開中にエラーが発生しました。\n\nDetail: {ex.Message} / 詳細",
+                        "Extraction Error / 展開エラー",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error
                     );
@@ -1012,7 +1012,7 @@ namespace rapid_zipper
         private async Task DecompressMultipleArchivesAsync(string[] archiveFilePaths)
         {
             string firstFileDir = Path.GetDirectoryName(archiveFilePaths[0]) ?? string.Empty;
-            UpdateStatus("展開先を選択中...");
+            UpdateStatus("Selecting destination folder... / 展開先を選択中...");
 
             string selectedParentDir = string.Empty;
 
@@ -1022,7 +1022,7 @@ namespace rapid_zipper
                 {
                     using (var dialog = new FolderBrowserDialog())
                     {
-                        dialog.Description = "すべてのアーカイブファイルの解凍先親フォルダを選択してください";
+                        dialog.Description = "Select destination parent folder for all archives / すべてのアーカイブファイルの解凍先親フォルダを選択してください";
                         dialog.InitialDirectory = firstFileDir;
                         dialog.SelectedPath = firstFileDir;
 
@@ -1037,7 +1037,7 @@ namespace rapid_zipper
             {
                 using (var dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = "すべてのアーカイブファイルの解凍先親フォルダを選択してください";
+                    dialog.Description = "Select destination parent folder for all archives / すべてのアーカイブファイルの解凍先親フォルダを選択してください";
                     dialog.InitialDirectory = firstFileDir;
                     dialog.SelectedPath = firstFileDir;
 
@@ -1050,7 +1050,7 @@ namespace rapid_zipper
 
             if (string.IsNullOrEmpty(selectedParentDir))
             {
-                UpdateStatus("展開をキャンセルしました。");
+                UpdateStatus("Extraction cancelled. / 展開をキャンセルしました。");
                 return;
             }
 
@@ -1058,7 +1058,7 @@ namespace rapid_zipper
             for (int i = 0; i < totalFiles; i++)
             {
                 string filePath = archiveFilePaths[i];
-                UpdateStatus($"[{i + 1}/{totalFiles}] 展開中: {Path.GetFileName(filePath)}...");
+                UpdateStatus($"[{i + 1}/{totalFiles}] Extracting: {Path.GetFileName(filePath)}... / 展開中");
 
                 try
                 {
@@ -1066,12 +1066,12 @@ namespace rapid_zipper
                 }
                 catch (Exception ex)
                 {
-                    UpdateStatus($"エラー ({Path.GetFileName(filePath)}): {ex.Message}");
-                    MessageBox.Show($"展開中にエラーが発生しました: {Path.GetFileName(filePath)}\n{ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    UpdateStatus($"Error ({Path.GetFileName(filePath)}): {ex.Message} / エラー");
+                    MessageBox.Show($"An error occurred during extraction of {Path.GetFileName(filePath)}:\n{ex.Message} / 展開中にエラーが発生しました", "Error / エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
 
-            UpdateStatus("すべての展開処理が完了しました。");
+            UpdateStatus("All extractions completed. / すべての展開処理が完了しました。");
 
             // 完了後の親フォルダオープン確認
             DialogResult openFolderResult = DialogResult.None;
@@ -1081,8 +1081,8 @@ namespace rapid_zipper
                 Invoke(new Action(() =>
                 {
                     openFolderResult = MessageBox.Show(
-                        "すべての展開が完了しました。展開先フォルダを開きますか？",
-                        "完了",
+                        "All extractions completed. Open the destination folder?\nすべての展開が完了しました。展開先フォルダを開きますか？",
+                        "Completed / 完了",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question
                     );
@@ -1091,8 +1091,8 @@ namespace rapid_zipper
             else
             {
                 openFolderResult = MessageBox.Show(
-                    "すべての展開が完了しました。展開先フォルダを開きますか？",
-                    "完了",
+                    "All extractions completed. Open the destination folder?\nすべての展開が完了しました。展開先フォルダを開きますか？",
+                    "Completed / 完了",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question
                 );
@@ -1110,7 +1110,7 @@ namespace rapid_zipper
                 }
                 catch (Exception ex)
                 {
-                    UpdateStatus($"フォルダを開く際にエラーが発生しました: {ex.Message}");
+                    UpdateStatus($"Error opening folder: {ex.Message} / フォルダを開く際にエラーが発生しました");
                 }
             }
         }

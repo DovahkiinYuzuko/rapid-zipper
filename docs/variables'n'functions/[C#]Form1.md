@@ -17,22 +17,22 @@
 
 ## 2. 関数定義
 
-### `Form1_Load` (行 62)
+### `Form1_Load` (行 73)
 - **型**: `private void`
 - **役割**: フォームロード時の処理。
 
-### `InitializeFormatComboBox` (行 66)
+### `InitializeFormatComboBox` (行 77)
 - **型**: `private void`
 - **役割**: `FormatComboBox` の選択項目に "ZIP", "7Z", "TAR", "TGZ (tar.gz)" を追加し、デフォルト選択を "ZIP" に設定する。
 
-### `RapidZipper_DragEnter` (行 76)
+### `RapidZipper_DragEnter` (行 87)
 - **型**: `private void`
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドラッグイベント引数
 - **役割**: フォームまたはパネル上にデータがドラッグされた際、ファイル（FileDrop）であれば `DragDropEffects.Copy` を設定して受け入れ状態にする。
 
-### `RapidZipper_DragDrop` (行 95)
+### `RapidZipper_DragDrop` (行 106)
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
@@ -41,21 +41,21 @@
   - **レベル選択ダイアログの起動**: 7Z圧縮の場合は、圧縮開始直前に `PromptCompressionLevel` を呼び出してユーザーに圧縮レベルを「低・普通・高」から選択させ、その値を非同期の圧縮メソッドへ渡す。
 - **依存関係**: `IsArchiveFile`, `DecompressArchiveAsync`, `DecompressMultipleArchivesAsync`, `CompressFolderAsync`, `CompressMultipleItemsAsync`, `SetUIProcessing`, `PromptCompressionLevel`
 
-### `UpdateStatus` (行 300)
+### `UpdateStatus` (行 311)
 - **型**: `private void`
 - **引数**:
   - `string message`: 表示するステータスメッセージ
 - **役割**: `Statuslabel` コントロールのテキストを安全に（InvokeRequiredを考慮して）更新する。
 - **影響範囲**: アプリケーション内の全ステータス表示更新
 
-### `SetUIProcessing` (行 312)
+### `SetUIProcessing` (行 323)
 - **型**: `private void`
 - **引数**:
   - `bool isProcessing`: 処理中かどうかのフラグ
 - **役割**: 処理中のプログレスバー表示の切り替え（Marqueeアニメーション開始/停止）および多重ドロップ防止のためのパネル活性制御を安全に（InvokeRequiredを考慮して）行う。
 - **影響範囲**: `ProcessingBar`, `DragDropPanel`
 
-### `CompressFolderAsync` (行 334)
+### `CompressFolderAsync` (行 345)
 - **型**: `private async Task`
 - **引数**:
   - `string folderPath`: 圧縮対象フォルダの絶対パス
@@ -67,7 +67,7 @@
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `CompressMultipleItemsAsync` (行 426)
+### `CompressMultipleItemsAsync` (行 413)
 - **型**: `private async Task`
 - **引数**:
   - `string[] sourcePaths`: 圧縮対象ファイル・フォルダのパス配列
@@ -100,7 +100,7 @@
 - **戻り値**: 保護対象パスであれば `true`、それ以外なら `false`
 - **影響範囲**: `DecompressArchiveAsync`
 
-### `AddDirectoryToDictionary` (行 616)
+### `AddDirectoryToDictionary` (行 614)
 - **型**: `private void`
 - **引数**:
   - `System.Collections.Generic.Dictionary<string, string> dict`: 圧縮対象ファイルの辞書（キー: アーカイブ内相対パス、値: ローカル絶対パス）
@@ -110,7 +110,7 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的に走査し、7Z圧縮用に対応辞書を構築する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToDictionary`（自己再帰）
 
-### `AddDirectoryToWriter` (行 591)
+### `AddDirectoryToWriter` (行 650)
 - **型**: `private void`
 - **引数**:
   - `IWriter writer`: SharpCompressのアーカイブライター
@@ -137,7 +137,7 @@
 - **依存関係**: `UpdateStatus`, `IsProtectedDirectory`
 - **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
-### `DecompressMultipleArchivesAsync` (行 748)
+### `DecompressMultipleArchivesAsync` (行 1012)
 - **型**: `private async Task`
 - **引数**:
   - `string[] archiveFilePaths`: 展開対象アーカイブファイルのパス配列
