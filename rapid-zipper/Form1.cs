@@ -857,7 +857,8 @@ namespace rapid_zipper
                 }
             }
 
-            UpdateStatus("Preparing extraction... / 展開処理を準備中...");
+            string encodingName = selectedEncoding.WebName.ToUpper();
+            UpdateStatus($"Preparing extraction [{encodingName}]... / 展開処理を準備中 ({encodingName})...");
 
             try
             {
@@ -1290,7 +1291,7 @@ namespace rapid_zipper
 
             try
             {
-                var utf8Strict = new System.Text.UTF8Encoding(true);
+                var utf8Strict = new System.Text.UTF8Encoding(false, true);
                 utf8Strict.GetString(bytes);
                 return System.Text.Encoding.UTF8;
             }
