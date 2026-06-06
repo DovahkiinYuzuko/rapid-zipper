@@ -26,10 +26,15 @@
 - **役割**: MSI インストーラーを出力するディレクトリの相対パス。
 - **動作**: フォルダが存在しない場合、`New-Item -ItemType Directory` によって動的にディレクトリを新規作成する。
 
-### `$MsiPath` (行 23)
+### `$MsiPath` (行 30)
 - **型**: `string`
 - **値**: `Resolve-Path "$DestDir\rapid-zipper.msi"`
 - **役割**: 生成されたインストーラー `rapid-zipper.msi` の最終的な絶対パス。
+
+### `$ExePath` (行 31)
+- **型**: `string`
+- **値**: `Resolve-Path "$DestDir\setup.exe"`
+- **役割**: 生成された EXE セットアップブートストラッパー `setup.exe` の最終的な絶対パス。
 
 ---
 
@@ -56,6 +61,14 @@
   - `-o "$DestDir\rapid-zipper.msi"`: 指定した出力パスに msi を出力する。
 - **例外制御**: `$LASTEXITCODE` が `0` でない場合は、`throw` して中断する。
 
+### Step 3: `wix build` (Bundle) (行 24)
+- **動作**: `Bundle.wxs` をソースとして、MSIを内包する EXE セットアップブートストラッパー（`setup.exe`）をコンパイル・リンクする。
+- **パラメータ説明**:
+  - `-arch x64`: アーキテクチャを x64 に指定する。
+  - `-ext WixToolset.Bal.wixext`: 標準のセットアップブートストラッパーUI（RTFライセンス画面）を使用するための WiX 拡張をロードする。
+  - `-o "$DestDir\setup.exe"`: 指定した出力パスに setup.exe を出力する。
+- **例外制御**: `$LASTEXITCODE` が `0` でない場合は、`throw` して中断する。
+
 ---
 
 ## 4. 依存関係マッピング (Dependency Mapping)
@@ -64,7 +77,10 @@
 graph TD
     build_script --> dotnet_publish
     dotnet_publish --> rapid_zipper_exe
-    build_script --> wix_build
-    rapid_zipper_exe --> wix_build
-    wix_build --> rapid_zipper_msi
+    build_script --> wix_build_msi
+    rapid_zipper_exe --> wix_build_msi
+    wix_build_msi --> rapid_zipper_msi
+    build_script --> wix_build_bundle
+    rapid_zipper_msi --> wix_build_bundle
+    wix_build_bundle --> setup_exe
 ```
