@@ -33,6 +33,8 @@ namespace rapid_zipper
             ProcessingBar = new ProgressBar();
             Statuslabel = new Label();
             label1 = new Label();
+            label2 = new Label();
+            EncodingComboBox = new ComboBox();
             DragDropPanel.SuspendLayout();
             SuspendLayout();
             // 
@@ -41,12 +43,14 @@ namespace rapid_zipper
             DragDropPanel.AllowDrop = true;
             DragDropPanel.Controls.Add(label1);
             DragDropPanel.Controls.Add(FormatComboBox);
+            DragDropPanel.Controls.Add(label2);
+            DragDropPanel.Controls.Add(EncodingComboBox);
             DragDropPanel.Controls.Add(ProcessingBar);
             DragDropPanel.Controls.Add(Statuslabel);
             DragDropPanel.Dock = DockStyle.Fill;
             DragDropPanel.Location = new Point(0, 0);
             DragDropPanel.Name = "DragDropPanel";
-            DragDropPanel.Size = new Size(360, 150);
+            DragDropPanel.Size = new Size(360, 180);
             DragDropPanel.TabIndex = 0;
             DragDropPanel.DragDrop += RapidZipper_DragDrop;
             DragDropPanel.DragEnter += RapidZipper_DragEnter;
@@ -60,9 +64,29 @@ namespace rapid_zipper
             FormatComboBox.Size = new Size(160, 23);
             FormatComboBox.TabIndex = 2;
             // 
+            // 
+            // label2
+            // 
+            label2.AutoSize = false;
+            label2.Location = new Point(30, 80);
+            label2.Name = "label2";
+            label2.Size = new Size(110, 20);
+            label2.TabIndex = 4;
+            label2.Text = "Encoding / 展開";
+            label2.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // EncodingComboBox
+            // 
+            EncodingComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            EncodingComboBox.FormattingEnabled = true;
+            EncodingComboBox.Location = new Point(150, 79);
+            EncodingComboBox.Name = "EncodingComboBox";
+            EncodingComboBox.Size = new Size(160, 23);
+            EncodingComboBox.TabIndex = 5;
+            // 
             // ProcessingBar
             // 
-            ProcessingBar.Location = new Point(30, 111);
+            ProcessingBar.Location = new Point(30, 140);
             ProcessingBar.Name = "ProcessingBar";
             ProcessingBar.Size = new Size(300, 24);
             ProcessingBar.TabIndex = 1;
@@ -93,7 +117,7 @@ namespace rapid_zipper
             AllowDrop = true;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(360, 150);
+            ClientSize = new Size(360, 180);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             Controls.Add(DragDropPanel);
@@ -115,5 +139,7 @@ namespace rapid_zipper
         private ProgressBar ProcessingBar;
         private ComboBox FormatComboBox;
         private Label label1;
+        private Label label2;
+        private ComboBox EncodingComboBox;
     }
 }

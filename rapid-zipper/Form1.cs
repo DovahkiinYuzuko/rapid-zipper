@@ -19,6 +19,7 @@ namespace rapid_zipper
         {
             InitializeComponent();
             InitializeFormatComboBox();
+            InitializeEncodingComboBox();
             _startupArgs = args;
 
             try
@@ -85,6 +86,41 @@ namespace rapid_zipper
             FormatComboBox.Items.Add("TAR");
             FormatComboBox.Items.Add("TGZ (tar.gz)");
             FormatComboBox.SelectedIndex = 0;
+        }
+
+        private void InitializeEncodingComboBox()
+        {
+            EncodingComboBox.Items.Clear();
+            EncodingComboBox.Items.Add("Auto-detect / 自動判定");
+            EncodingComboBox.Items.Add("UTF-8");
+            EncodingComboBox.Items.Add("Shift-JIS (Japanese)");
+            EncodingComboBox.Items.Add("GB2312 (Simplified Chinese)");
+            EncodingComboBox.Items.Add("Big5 (Traditional Chinese)");
+            EncodingComboBox.Items.Add("EUC-KR (Korean)");
+            EncodingComboBox.SelectedIndex = 0;
+        }
+
+        private System.Text.Encoding? GetSelectedEncoding()
+        {
+            int index = 0;
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => index = EncodingComboBox.SelectedIndex));
+            }
+            else
+            {
+                index = EncodingComboBox.SelectedIndex;
+            }
+
+            switch (index)
+            {
+                case 1: return System.Text.Encoding.UTF8;
+                case 2: return System.Text.Encoding.GetEncoding(932); // Shift-JIS
+                case 3: return System.Text.Encoding.GetEncoding(936); // GB2312
+                case 4: return System.Text.Encoding.GetEncoding(950); // Big5
+                case 5: return System.Text.Encoding.GetEncoding(949); // EUC-KR
+                default: return null; // 自動判定
+            }
         }
 
         private void RapidZipper_DragEnter(object sender, DragEventArgs e)
@@ -722,6 +758,19 @@ namespace rapid_zipper
             const long MaxUncompressedSizeLimit = 100L * 1024 * 1024 * 1024; // 100 GB
             const int MaxFileCountLimit = 500000; // 500,000 ファイル
 
+            // 展開に使用するエンコーディングの決定
+            System.Text.Encoding selectedEncoding = System.Text.Encoding.UTF8;
+            var targetEncoding = GetSelectedEncoding();
+            if (targetEncoding != null)
+            {
+                selectedEncoding = targetEncoding;
+            }
+            else
+            {
+                // 自動判定
+                selectedEncoding = DetectEncoding(archiveFilePath);
+            }
+
             string archiveFileNameWithoutExt = Path.GetFileNameWithoutExtension(archiveFilePath);
             string destDirBase = Path.Combine(destParentDir, archiveFileNameWithoutExt);
             string destDir = destDirBase;
@@ -822,7 +871,7 @@ namespace rapid_zipper
                     if (ext == ".zip")
                     {
                         // 1. ZIP形式: ZipArchive を開いて Zip Slip 防止と容量チェックを行いながら展開
-                        using (var archive = System.IO.Compression.ZipFile.OpenRead(archiveFilePath))
+                        using (var archive = System.IO.Compression.ZipFile.Open(archiveFilePath, ZipArchiveMode.Read, selectedEncoding))
                         {
                             long totalSizeEstimate = 0;
                             int fileCountEstimate = 0;
@@ -845,8 +894,11 @@ namespace rapid_zipper
                             {
                                 if (string.IsNullOrEmpty(entry.Name)) continue;
 
+                                // 相対パスのサニタイズ（Windows禁止文字の除去）
+                                string sanitizedRelative = SanitizeRelativePathForWindows(entry.FullName);
+
                                 // Path Traversal (Zip Slip) 防止のパス正規化検証
-                                string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, entry.FullName));
+                                string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, sanitizedRelative));
                                 string targetDirFullPath = Path.GetFullPath(extractionTargetDir) + Path.DirectorySeparatorChar;
 
                                 if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
@@ -910,11 +962,9 @@ namespace rapid_zipper
                     else
                     {
                         // 3. その他 (TAR, TGZ, RAR等): SharpCompress の IReader
-                        int ansiCodePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
-                        var encoding = System.Text.Encoding.GetEncoding(ansiCodePage);
                         var options = new ReaderOptions
                         {
-                            ArchiveEncoding = new ArchiveEncoding { Default = encoding }
+                            ArchiveEncoding = new ArchiveEncoding { Default = selectedEncoding }
                         };
 
                         using (Stream stream = File.OpenRead(archiveFilePath))
@@ -947,8 +997,11 @@ namespace rapid_zipper
                                 {
                                     if (reader.Entry.IsDirectory) continue;
 
+                                    // 相対パスのサニタイズ（Windows禁止文字の除去）
+                                    string sanitizedRelative = SanitizeRelativePathForWindows(reader.Entry.Key ?? string.Empty);
+
                                     // Path Traversal (Zip Slip) 防止のパス正規化検証
-                                    string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, reader.Entry.Key ?? string.Empty));
+                                    string entryFullPath = Path.GetFullPath(Path.Combine(extractionTargetDir, sanitizedRelative));
                                     string targetDirFullPath = Path.GetFullPath(extractionTargetDir) + Path.DirectorySeparatorChar;
 
                                     if (!entryFullPath.StartsWith(targetDirFullPath, StringComparison.OrdinalIgnoreCase))
@@ -957,11 +1010,18 @@ namespace rapid_zipper
                                         continue;
                                     }
 
-                                    reader.WriteEntryToDirectory(extractionTargetDir, new ExtractionOptions
+                                    string? parentDir = Path.GetDirectoryName(entryFullPath);
+                                    if (parentDir != null && !Directory.Exists(parentDir))
                                     {
-                                        ExtractFullPath = true,
-                                        Overwrite = true
-                                    });
+                                        Directory.CreateDirectory(parentDir);
+                                    }
+
+                                    // 自前ファイル書き出しによるサニタイズ適用
+                                    using (var entryStream = reader.OpenEntryStream())
+                                    using (var fs = File.Create(entryFullPath))
+                                    {
+                                        entryStream.CopyTo(fs);
+                                    }
 
                                     currentTotalWritten += reader.Entry.Size;
                                     if (currentTotalWritten > MaxUncompressedSizeLimit)
@@ -1147,6 +1207,266 @@ namespace rapid_zipper
                     UpdateStatus($"Error opening folder: {ex.Message} / フォルダを開く際にエラーが発生しました");
                 }
             }
+        }
+
+        private static byte[] GetFileNameBytesFromZip(string zipPath, int maxEntries = 15)
+        {
+            var allBytes = new System.Collections.Generic.List<byte>();
+            try
+            {
+                using (var fs = File.OpenRead(zipPath))
+                {
+                    if (fs.Length < 22) return allBytes.ToArray();
+                    
+                    long eocdOffset = -1;
+                    long maxRead = Math.Min(fs.Length, 65557);
+                    fs.Seek(-maxRead, SeekOrigin.End);
+                    byte[] buffer = new byte[maxRead];
+                    fs.ReadExactly(buffer, 0, buffer.Length);
+                    
+                    for (int i = buffer.Length - 22; i >= 0; i--)
+                    {
+                        if (buffer[i] == 0x50 && buffer[i + 1] == 0x4B && buffer[i + 2] == 0x05 && buffer[i + 3] == 0x06)
+                        {
+                            eocdOffset = fs.Length - maxRead + i;
+                            break;
+                        }
+                    }
+                    
+                    if (eocdOffset == -1) return allBytes.ToArray();
+                    
+                    fs.Seek(eocdOffset + 12, SeekOrigin.Begin);
+                    using (var br = new BinaryReader(fs, System.Text.Encoding.ASCII, true))
+                    {
+                        uint cdSize = br.ReadUInt32();
+                        uint cdOffset = br.ReadUInt32();
+                        
+                        if (cdOffset + cdSize > fs.Length) return allBytes.ToArray();
+                        
+                        fs.Seek(cdOffset, SeekOrigin.Begin);
+                        int entriesCount = 0;
+                        while (fs.Position + 46 <= cdOffset + cdSize)
+                        {
+                            uint sig = br.ReadUInt32();
+                            if (sig != 0x02014b50) // PK\x01\x02
+                            {
+                                break;
+                            }
+                            
+                            fs.Seek(24, SeekOrigin.Current);
+                            ushort fileNameLen = br.ReadUInt16();
+                            ushort extraFieldLen = br.ReadUInt16();
+                            ushort fileCommentLen = br.ReadUInt16();
+                            
+                            fs.Seek(12, SeekOrigin.Current);
+                            
+                            if (fileNameLen > 0 && fs.Position + fileNameLen <= fs.Length)
+                            {
+                                byte[] nameBytes = br.ReadBytes(fileNameLen);
+                                allBytes.AddRange(nameBytes);
+                                entriesCount++;
+                                if (entriesCount >= maxEntries) break;
+                            }
+                            
+                            fs.Seek(extraFieldLen + fileCommentLen, SeekOrigin.Current);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // エラー時は部分取得データを使用
+            }
+            return allBytes.ToArray();
+        }
+
+        private static System.Text.Encoding DetectEncoding(string zipPath)
+        {
+            byte[] bytes = GetFileNameBytesFromZip(zipPath);
+            if (bytes == null || bytes.Length == 0)
+            {
+                return System.Text.Encoding.UTF8;
+            }
+
+            try
+            {
+                var utf8Strict = new System.Text.UTF8Encoding(true);
+                utf8Strict.GetString(bytes);
+                return System.Text.Encoding.UTF8;
+            }
+            catch (ArgumentException)
+            {
+                // UTF-8ではない
+            }
+
+            if (IsValidShiftJIS(bytes))
+            {
+                return System.Text.Encoding.GetEncoding(932);
+            }
+            if (IsValidGB2312(bytes))
+            {
+                return System.Text.Encoding.GetEncoding(936);
+            }
+            if (IsValidBig5(bytes))
+            {
+                return System.Text.Encoding.GetEncoding(950);
+            }
+            if (IsValidEucKr(bytes))
+            {
+                return System.Text.Encoding.GetEncoding(949);
+            }
+
+            return System.Text.Encoding.GetEncoding(System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage);
+        }
+
+        private static bool IsValidShiftJIS(byte[] bytes)
+        {
+            int i = 0;
+            while (i < bytes.Length)
+            {
+                byte b1 = bytes[i];
+                if (b1 <= 0x7F)
+                {
+                    i++;
+                    continue;
+                }
+                if (b1 >= 0xA1 && b1 <= 0xDF)
+                {
+                    i++;
+                    continue;
+                }
+                if ((b1 >= 0x81 && b1 <= 0x9F) || (b1 >= 0xE0 && b1 <= 0xFC))
+                {
+                    if (i + 1 >= bytes.Length) return false;
+                    byte b2 = bytes[i + 1];
+                    if ((b2 >= 0x40 && b2 <= 0x7E) || (b2 >= 0x80 && b2 <= 0xFC))
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    return false;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsValidGB2312(byte[] bytes)
+        {
+            int i = 0;
+            while (i < bytes.Length)
+            {
+                byte b1 = bytes[i];
+                if (b1 <= 0x7F)
+                {
+                    i++;
+                    continue;
+                }
+                if (b1 >= 0x81 && b1 <= 0xFE)
+                {
+                    if (i + 1 >= bytes.Length) return false;
+                    byte b2 = bytes[i + 1];
+                    if ((b2 >= 0x40 && b2 <= 0x7E) || (b2 >= 0x80 && b2 <= 0xFE))
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    return false;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsValidBig5(byte[] bytes)
+        {
+            int i = 0;
+            while (i < bytes.Length)
+            {
+                byte b1 = bytes[i];
+                if (b1 <= 0x7F)
+                {
+                    i++;
+                    continue;
+                }
+                if (b1 >= 0x81 && b1 <= 0xFE)
+                {
+                    if (i + 1 >= bytes.Length) return false;
+                    byte b2 = bytes[i + 1];
+                    if ((b2 >= 0x40 && b2 <= 0x7E) || (b2 >= 0xA1 && b2 <= 0xFE))
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    return false;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsValidEucKr(byte[] bytes)
+        {
+            int i = 0;
+            while (i < bytes.Length)
+            {
+                byte b1 = bytes[i];
+                if (b1 <= 0x7F)
+                {
+                    i++;
+                    continue;
+                }
+                if (b1 >= 0x81 && b1 <= 0xFE)
+                {
+                    if (i + 1 >= bytes.Length) return false;
+                    byte b2 = bytes[i + 1];
+                    if ((b2 >= 0x41 && b2 <= 0x5A) || (b2 >= 0x61 && b2 <= 0x7A) || (b2 >= 0x81 && b2 <= 0xFE))
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    return false;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static string SanitizeRelativePathForWindows(string relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath)) return "_";
+
+            var parts = relativePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            var invalidNameChars = Path.GetInvalidFileNameChars();
+            var reserved = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "CON","PRN","AUX","NUL",
+                "COM1","COM2","COM3","COM4","COM5","COM6","COM7","COM8","COM9",
+                "LPT1","LPT2","LPT3","LPT4","LPT5","LPT6","LPT7","LPT8","LPT9"
+            };
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var sb = new System.Text.StringBuilder(parts[i].Length);
+                foreach (char c in parts[i])
+                {
+                    // Windows で使用禁止の文字を '_' に置換
+                    if (System.Array.IndexOf(invalidNameChars, c) >= 0 || c == ':' || c == '|')
+                    {
+                        sb.Append('_');
+                    }
+                    else
+                    {
+                        sb.Append(c);
+                    }
+                }
+                var sanitized = sb.ToString().TrimEnd(' ', '.');
+                if (string.IsNullOrEmpty(sanitized)) sanitized = "_";
+                if (reserved.Contains(sanitized)) sanitized += "_";
+                parts[i] = sanitized;
+            }
+
+            return Path.Combine(parts);
         }
     }
 }

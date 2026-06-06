@@ -16,27 +16,37 @@
 
 #### 主要変数
 - `_startupArgs` (`private string[]?`): アプリ起動時にコマンドライン引数として引き渡されたファイル/フォルダパスの配列。
+- `EncodingComboBox` (`private ComboBox`): 展開時の文字エンコーディングを選択する UI コンボボックス。
+- `label2` (`private Label`): `EncodingComboBox` 用のラベルコントロール。
 
 ---
 
 ## 2. 関数定義
 
-### `Form1_Load` (行 76)
+### `Form1_Load` (行 77)
 - **型**: `private void`
 - **役割**: フォームロード時の処理。
 
-### `InitializeFormatComboBox` (行 80)
+### `InitializeFormatComboBox` (行 81)
 - **型**: `private void`
 - **役割**: `FormatComboBox` の選択項目に "ZIP", "7Z", "TAR", "TGZ (tar.gz)" を追加し、デフォルト選択を "ZIP" に設定する。
 
-### `RapidZipper_DragEnter` (行 90)
+### `InitializeEncodingComboBox` (行 91)
+- **型**: `private void`
+- **役割**: `EncodingComboBox` の選択項目に "Auto-detect / 自動判定", "UTF-8", "Shift-JIS", "GB2312", "Big5", "EUC-KR" を追加し、デフォルト選択を自動判定に設定する。
+
+### `GetSelectedEncoding` (行 103)
+- **型**: `private System.Text.Encoding?`
+- **役割**: `EncodingComboBox` で選択されている文字コード（System.Text.Encoding オブジェクト）を取得する。自動判定（インデックス0）が選択されている場合は `null` を返す。
+
+### `RapidZipper_DragEnter` (行 126)
 - **型**: `private void`
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドラッグイベント引数
 - **役割**: フォームまたはパネル上にデータがドラッグされた際、ファイル（FileDrop）であれば `DragDropEffects.Copy` を設定して受け入れ状態にする。
 
-### `RapidZipper_DragDrop` (行 109)
+### `RapidZipper_DragDrop` (行 145)
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
@@ -44,7 +54,7 @@
 - **役割**: ファイルがドラッグ＆ドロップされた際に起動され、ドロップされたファイルパス群を `ProcessPathsAsync` メソッドに引き渡して圧縮または展開処理を開始する。
 - **依存関係**: `ProcessPathsAsync`, `SetUIProcessing`, `UpdateStatus`
 
-### `RapidZipper_Shown` (行 131)
+### `RapidZipper_Shown` (行 167)
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
@@ -52,7 +62,7 @@
 - **役割**: フォームが画面に表示された直後（Shownイベント時）に起動され、起動引数 `_startupArgs` に処理対象パスが存在する場合、それを `ProcessPathsAsync` に引き渡して自動的に圧縮または解凍を実行する。処理完了後は、ユーザーの利便性を高めるために `Application.Exit()` を呼び出し、アプリケーションを自動で終了する。
 - **依存関係**: `ProcessPathsAsync`, `SetUIProcessing`, `UpdateStatus`
 
-### `ProcessPathsAsync` (行 158)
+### `ProcessPathsAsync` (行 194)
 - **型**: `private async Task`
 - **引数**:
   - `string[] paths`: 処理対象となるファイル・フォルダのパス配列
@@ -155,7 +165,7 @@
     1. **`.zip`形式**: .NET標準の `ZipArchive` を用いて、Zip Slip防止と容量チェックを行いながら展開。
     2. **`.7z`形式**: `SevenZipExtractor` を使用。事前にパス検証を行った上でネイティブロード。
     3. **その他の形式**: `SharpCompress` の `IReader` を使用。事前サイズチェックを行った上で、各エントリごとにパス検証を適用してシーケンシャル展開。
-- **依存関係**: `UpdateStatus`, `IsProtectedDirectory`
+- **依存関係**: `UpdateStatus`, `IsProtectedDirectory`, `SanitizeRelativePathForWindows`
 - **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
 ### `DecompressMultipleArchivesAsync` (行 1046)
@@ -167,6 +177,13 @@
   - 以降はバックグラウンドのループ（タスクキュー）で各ファイルを順番に `DecompressArchiveAsync` で解凍。
   - 進行状況を 「[1/3] 展開中: ファイル名...」 の形式で表示。
 - **依存関係**: `DecompressArchiveAsync`, `UpdateStatus`
+
+### `SanitizeRelativePathForWindows` (行 1431)
+- **型**: `private static string`
+- **引数**:
+  - `string relativePath`: アーカイブ内の相対パス
+- **役割**: 相対パスに含まれる Windows で無効な文字（`\ / : * ? " < > |` など）を `_` に置換し、Windows の予約デバイス名（`CON`, `NUL` など）や末尾のドット・空白を適切にサニタイズして、安全な Windows 用ファイルシステムパスを組み立てる。
+- **影響範囲**: `DecompressArchiveAsync`
 
 ---
 
@@ -194,10 +211,18 @@ graph TD
     AddDirectoryToDictionary --> UpdateStatus
     AddDirectoryToDictionary --> AddDirectoryToDictionary
     DecompressArchiveAsync --> UpdateStatus
+    DecompressArchiveAsync --> GetSelectedEncoding
+    DecompressArchiveAsync --> DetectEncoding
+    DecompressArchiveAsync --> SanitizeRelativePathForWindows
+    DetectEncoding --> GetFileNameBytesFromZip
+    DetectEncoding --> IsValidShiftJIS
+    DetectEncoding --> IsValidGB2312
+    DetectEncoding --> IsValidBig5
+    DetectEncoding --> IsValidEucKr
     DecompressMultipleArchivesAsync --> DecompressArchiveAsync
     DecompressMultipleArchivesAsync --> UpdateStatus
 ```
 
 ### 影響範囲 (Impact Scope)
 - **`Program.cs`**: `Application.Run(new RapidZipper(args))` として起動引数付きでこのクラスを初期化・実行する。
-- **`Form1.Designer.cs`**: `RapidZipper` クラスの部分クラス定義、コントロール、およびフォームの `Shown` イベントと `RapidZipper_Shown` イベントハンドラのバインディングを保持する。
+- **`Form1.Designer.cs`**: `RapidZipper` クラスの部分クラス定義、UIコントロール（`EncodingComboBox` と `label2` を含む）、およびフォームの `Shown` イベントと `RapidZipper_Shown` イベントハンドラのバインディングを保持する。
