@@ -4,7 +4,8 @@
 # ---AUTO-Generated---
 # .gitignores/ラピッド圧縮✧展開.gitignore
 !docs/
-!docs/**
+!docs/variables'n'functions/
+!docs/variables'n'functions/**
 
 !rapid-zipper/
 !rapid-zipper/**
