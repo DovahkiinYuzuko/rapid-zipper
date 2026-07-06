@@ -1,5 +1,5 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
-  <Bundle Name="ラピッド圧縮✧展開" Manufacturer="YuzukoUnderson" Version="1.0.1.0" UpgradeCode="a6b856b3-6c8c-4a37-b452-e56bdc39e9f7">
+  <Bundle Name="ラピッド圧縮✧展開" Manufacturer="YuzukoUnderson" Version="1.0.1.0" UpgradeCode="a6b856b3-6c8c-4a37-b452-e56bdc39e9f7" IconSourceFile="app.ico">
     
     <!-- 標準UI（ライセンス表示付きのRTFライセンス）を使用 -->
     <BootstrapperApplication>

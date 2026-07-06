@@ -1,7 +1,8 @@
+# project:ラピッド圧縮✧展開
 *
-
 !.gitignore
-
+# ---AUTO-Generated---
+# .gitignores/ラピッド圧縮✧展開.gitignore
 !docs/
 !docs/**
 
@@ -16,8 +17,7 @@ obj/
 !README.md
 !NOTICE.md
 !LICENSE
-!ラピッド圧縮✧展開まとめ.md
+!app.png
 
 !.github/
 !.github/**
-

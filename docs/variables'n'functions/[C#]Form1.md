@@ -1,10 +1,24 @@
+---
+source_file: "rapid-zipper/Form1.cs"
+language: "C#"
+description: "ドラッグ＆ドロップおよびコンテキストメニュー起動に対応した非同期圧縮・展開処理の画面UIおよび主要ロジック定義。"
+tags:
+  - "@UI"
+  - "@Core"
+exports:
+  - RapidZipper
+imports:
+  - "rapid-zipper/Program.cs"
+---
+
 # [C#] Form1 (RapidZipper) 変数・関数仕様書
 
 本ドキュメントは、[Form1.cs](file:///c:/Users/rikui/Documents/VSCode/%E3%83%A9%E3%83%94%E3%83%83%E3%83%89%E5%9C%A7%E7%B8%AE%E2%9C%A7%E5%B1%95%E9%96%8B/rapid-zipper/Form1.cs)におけるクラス、関数、および主要な変数の定義と依存関係を記述します。
 
 ## 1. クラス定義
 
-### `RapidZipper` (行 14)
+### `RapidZipper`
+- **行**: 14
 - **型**: `partial class` (継承: `Form`)
 - **役割**: メイン of Windows Formsアプリケーション画面のコントロールとロジックを保持する部分クラス。
   - **7z.dllのバグ回避策 & 脆弱性対策 (VULN-001) & ポータブル化**: 
@@ -12,6 +26,8 @@
     これによって外部DLLファイルへの依存を完全に解消し、アプリケーション自体を単一の実行可能ファイル（シングルファイル）としてどこにでも配置・動作させることができる。
     一時フォルダ名に `Guid.NewGuid().ToString("N")` を使った予測不可能な文字列を組み込むことで、攻撃者が事前にフォルダリンクを作成してシステムファイルを不正に上書きさせるジャンクション攻撃（脆弱性 VULN-001）を完全に防いでいる。
     さらに、次回アプリ起動時に、過去のセッションで作成された古い `RapidZipper_7z_*` フォルダを走査して自動的に一掃するクリーンアップ処理を行う。
+  - **アぷリアイコンの動的設定**:
+    コンストラクタ内にて、`Application.ExecutablePath` からアイコンを動的に抽出し、フォームのアイコン（`this.Icon`）に適用する。これにより、csproj の `ApplicationIcon` で指定されたアプリアイコンが、実行時にフォーム上でも自動的に表示される。
   - **起動引数の受領**: コンストラクタ引数として `string[]? args` を受け取り、プライベート変数 `_startupArgs` に保持する。これによって、Windows エクスプローラーの右クリックコンテキストメニュー（レジストリ経由）から起動された際に、対象ファイル・フォルダのパスを自動処理できるようになっている。
 
 #### 主要変数
@@ -23,30 +39,30 @@
 
 ## 2. 関数定義
 
-### `Form1_Load` (行 77)
+### (Line 77) `Form1_Load`
 - **型**: `private void`
 - **役割**: フォームロード時の処理。
 
-### `InitializeFormatComboBox` (行 81)
+### (Line 81) `InitializeFormatComboBox`
 - **型**: `private void`
 - **役割**: `FormatComboBox` の選択項目に "ZIP", "7Z", "TAR", "TGZ (tar.gz)" を追加し、デフォルト選択を "ZIP" に設定する。
 
-### `InitializeEncodingComboBox` (行 91)
+### (Line 91) `InitializeEncodingComboBox`
 - **型**: `private void`
 - **役割**: `EncodingComboBox` の選択項目に "Auto-detect / 自動判定", "UTF-8", "Shift-JIS", "GB2312", "Big5", "EUC-KR" を追加し、デフォルト選択を自動判定に設定する。
 
-### `GetSelectedEncoding` (行 103)
+### (Line 103) `GetSelectedEncoding`
 - **型**: `private System.Text.Encoding?`
 - **役割**: `EncodingComboBox` で選択されている文字コード（System.Text.Encoding オブジェクト）を取得する。自動判定（インデックス0）が選択されている場合は `null` を返す。
 
-### `RapidZipper_DragEnter` (行 126)
+### (Line 126) `RapidZipper_DragEnter`
 - **型**: `private void`
 - **引数**:
   - `object sender`: イベント発生元
   - `DragEventArgs e`: ドラッグイベント引数
 - **役割**: フォームまたはパネル上にデータがドラッグされた際、ファイル（FileDrop）であれば `DragDropEffects.Copy` を設定して受け入れ状態にする。
 
-### `RapidZipper_DragDrop` (行 145)
+### (Line 145) `RapidZipper_DragDrop`
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
@@ -54,7 +70,7 @@
 - **役割**: ファイルがドラッグ＆ドロップされた際に起動され、ドロップされたファイルパス群を `ProcessPathsAsync` メソッドに引き渡して圧縮または展開処理を開始する。
 - **依存関係**: `ProcessPathsAsync`, `SetUIProcessing`, `UpdateStatus`
 
-### `RapidZipper_Shown` (行 167)
+### (Line 167) `RapidZipper_Shown`
 - **型**: `private async void`
 - **引数**:
   - `object sender`: イベント発生元
@@ -62,7 +78,7 @@
 - **役割**: フォームが画面に表示された直後（Shownイベント時）に起動され、起動引数 `_startupArgs` に処理対象パスが存在する場合、それを `ProcessPathsAsync` に引き渡して自動的に圧縮または解凍を実行する。処理完了後は、ユーザーの利便性を高めるために `Application.Exit()` を呼び出し、アプリケーションを自動で終了する。
 - **依存関係**: `ProcessPathsAsync`, `SetUIProcessing`, `UpdateStatus`
 
-### `ProcessPathsAsync` (行 194)
+### (Line 194) `ProcessPathsAsync`
 - **型**: `private async Task`
 - **引数**:
   - `string[] paths`: 処理対象となるファイル・フォルダのパス配列
@@ -72,21 +88,21 @@
   - **レベル選択ダイアログの起動**: 7Z圧縮の場合は、圧縮開始直前に `PromptCompressionLevel` を呼び出してユーザーに圧縮レベルを「低・普通・高」から選択させ、その値を非同期の圧縮メソッドへ渡す。
 - **依存関係**: `IsArchiveFile`, `DecompressArchiveAsync`, `DecompressMultipleArchivesAsync`, `CompressFolderAsync`, `CompressMultipleItemsAsync`, `PromptCompressionLevel`, `UpdateStatus`
 
-### `UpdateStatus` (行 345)
+### (Line 345) `UpdateStatus`
 - **型**: `private void`
 - **引数**:
   - `string message`: 表示するステータスメッセージ
 - **役割**: `Statuslabel` コントロールのテキストを安全に（InvokeRequiredを考慮して）更新する。
 - **影響範囲**: アプリケーション内の全ステータス表示更新
 
-### `SetUIProcessing` (行 357)
+### (Line 357) `SetUIProcessing`
 - **型**: `private void`
 - **引数**:
   - `bool isProcessing`: 処理中かどうかのフラグ
 - **役割**: 処理中のプログレスバー表示の切り替え（Marqueeアニメーション開始/停止）および多重処理防止のためのパネル活性制御を安全に（InvokeRequiredを考慮して）行う。
 - **影響範囲**: `ProcessingBar`, `DragDropPanel`
 
-### `CompressFolderAsync` (行 379)
+### (Line 379) `CompressFolderAsync`
 - **型**: `private async Task`
 - **引数**:
   - `string folderPath`: 圧縮対象フォルダの絶対パス
@@ -98,7 +114,7 @@
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `CompressMultipleItemsAsync` (行 447)
+### (Line 447) `CompressMultipleItemsAsync`
 - **型**: `private async Task`
 - **引数**:
   - `string[] sourcePaths`: 圧縮対象ファイル・フォルダのパス配列
@@ -111,19 +127,19 @@
 - **依存関係**: `AddDirectoryToDictionary`, `AddDirectoryToWriter`, `UpdateStatus`
 - **影響範囲**: バックグラウンドスレッドでのIO・圧縮処理
 
-### `PromptCompressionLevel` (行 520)
+### (Line 520) `PromptCompressionLevel`
 - **型**: `private SevenZip.CompressionLevel`
 - **役割**: 7z圧縮を行う直前に、動的な選択ダイアログ（Form）を画面中央に生成・表示し、ラジオボタンによって「低」「普通」「高」のいずれかを選択させる。
 - **戻り値**: 選択された `CompressionLevel`（Low / Normal / High）
 
-### `ConfigureSevenZipCompressor` (行 564)
+### (Line 564) `ConfigureSevenZipCompressor`
 - **型**: `private SevenZipCompressor`
 - **引数**:
   - `SevenZip.CompressionLevel level`: 設定する圧縮レベル
 - **役割**: 7z圧縮レベルに応じた辞書サイズ（4m/8m/32m）およびスレッド制限のパラメータを `SevenZipCompressor` に対して設定する共通ヘルパー。
 - **影響範囲**: `CompressFolderAsync`, `CompressMultipleItemsAsync`
 
-### `IsProtectedDirectory` (行 594)
+### (Line 594) `IsProtectedDirectory`
 - **型**: `private bool`
 - **引数**:
   - `string path`: 検査対象のフォルダ絶対パス
@@ -131,7 +147,7 @@
 - **戻り値**: 保護対象パスであれば `true`、それ以外なら `false`
 - **影響範囲**: `DecompressArchiveAsync`
 
-### `AddDirectoryToDictionary` (行 648)
+### (Line 648) `AddDirectoryToDictionary`
 - **型**: `private void`
 - **引数**:
   - `System.Collections.Generic.Dictionary<string, string> dict`: 圧縮対象ファイルの辞書（キー: アーカイブ内相対パス、値: ローカル絶対パス）
@@ -141,7 +157,7 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的に走査し、7Z圧縮用に対応辞書を構築する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToDictionary`（自己再帰）
 
-### `AddDirectoryToWriter` (行 684)
+### (Line 684) `AddDirectoryToWriter`
 - **型**: `private void`
 - **引数**:
   - `IWriter writer`: SharpCompress of アーカイブライター
@@ -151,7 +167,7 @@
 - **役割**: 指定されたフォルダ内の全ファイルおよびサブフォルダを再帰的に `IWriter` を用いてアーカイブに追加する。
 - **依存関係**: `UpdateStatus`, `AddDirectoryToWriter`（自己再帰）
 
-### `DecompressArchiveAsync` (行 720)
+### (Line 720) `DecompressArchiveAsync`
 - **型**: `private async Task`
 - **引数**:
   - `string archiveFilePath`: 展開対象アーカイブファイルの絶対パス
@@ -168,7 +184,7 @@
 - **依存関係**: `UpdateStatus`, `IsProtectedDirectory`, `SanitizeRelativePathForWindows`
 - **影響範囲**: バックグラウンドスレッドでのIO・解凍処理
 
-### `DecompressMultipleArchivesAsync` (行 1046)
+### (Line 1046) `DecompressMultipleArchivesAsync`
 - **型**: `private async Task`
 - **引数**:
   - `string[] archiveFilePaths`: 展開対象アーカイブファイルのパス配列
@@ -178,7 +194,7 @@
   - 進行状況を 「[1/3] 展開中: ファイル名...」 の形式で表示。
 - **依存関係**: `DecompressArchiveAsync`, `UpdateStatus`
 
-### `SanitizeRelativePathForWindows` (行 1431)
+### (Line 1431) `SanitizeRelativePathForWindows`
 - **型**: `private static string`
 - **引数**:
   - `string relativePath`: アーカイブ内の相対パス

@@ -10,6 +10,7 @@
     <!-- 7z.Libsの自動コピー（シングルファイルビルド時のバグ持ち）を無効化 -->
     <NG7zLibsCopyToOutput>false</NG7zLibsCopyToOutput>
     <NG7zLibsResolvePublish>false</NG7zLibsResolvePublish>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

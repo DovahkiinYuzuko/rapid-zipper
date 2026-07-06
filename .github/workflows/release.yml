@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -33,6 +34,7 @@ jobs:
           # wix.exeにパスが通った新しいシェルセッションで拡張機能を追加
           wix extension add -g WixToolset.UI.wixext/5.0.2
           wix extension add -g WixToolset.Util.wixext/5.0.2
+          wix extension add -g WixToolset.Bal.wixext/5.0.2
         shell: powershell
 
       - name: Build MSI Installer
@@ -45,5 +47,6 @@ jobs:
         with:
           files: |
             rapid-zipper/bin/x64/Release/rapid-zipper.msi
+            rapid-zipper/bin/x64/Release/RapidZipperSetup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

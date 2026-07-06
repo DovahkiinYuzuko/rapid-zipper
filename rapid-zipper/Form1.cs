@@ -18,6 +18,14 @@ namespace rapid_zipper
         public RapidZipper(string[]? args = null)
         {
             InitializeComponent();
+            try
+            {
+                this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            }
+            catch
+            {
+                // アイコンの抽出に失敗した場合はデフォルトアイコンのままにする
+            }
             InitializeFormatComboBox();
             InitializeEncodingComboBox();
             _startupArgs = args;
